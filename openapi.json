@@ -2,36 +2,36 @@
   "openapi": "3.1.0",
   "info": {
     "title": "MindX Notes API",
-    "description": "CRUD API for managing notes. Designed for agent integration (OpenClaw, WorkBuddy, etc.).",
-    "version": "1.0.0"
+    "description": "CRUD API for managing notes. Supports user and agent authentication with data isolation per user. Agents share their owner's data and are tracked as the actor on each operation.",
+    "version": "3.0.0"
   },
   "servers": [
-    { "url": "https://mindx.onrender.com", "description": "Production" },
+    { "url": "https://mindx-livv.onrender.com", "description": "Production" },
     { "url": "http://localhost:3000", "description": "Local development" }
   ],
+  "security": [{ "bearerAuth": [] }],
   "paths": {
     "/api/notes": {
       "get": {
         "operationId": "listNotes",
         "summary": "List all notes",
-        "description": "Returns all notes ordered by creation time (newest first).",
+        "description": "Returns all notes belonging to the authenticated user (or the agent's owner), ordered by creation time (newest first).",
         "responses": {
           "200": {
             "description": "Array of notes",
             "content": {
               "application/json": {
-                "schema": {
-                  "type": "array",
-                  "items": { "$ref": "#/components/schemas/Note" }
-                }
+                "schema": { "type": "array", "items": { "$ref": "#/components/schemas/Note" } }
               }
             }
-          }
+          },
+          "401": { "$ref": "#/components/responses/Unauthorized" }
         }
       },
       "post": {
         "operationId": "createNote",
         "summary": "Create a note",
+        "description": "Creates a note. The `created_by` field is automatically set to the authenticated user or agent name.",
         "requestBody": {
           "required": true,
           "content": {
@@ -43,20 +43,13 @@
         "responses": {
           "201": {
             "description": "Created note",
-            "content": {
-              "application/json": {
-                "schema": { "$ref": "#/components/schemas/Note" }
-              }
-            }
+            "content": { "application/json": { "schema": { "$ref": "#/components/schemas/Note" } } }
           },
           "400": {
             "description": "Validation error",
-            "content": {
-              "application/json": {
-                "schema": { "$ref": "#/components/schemas/Error" }
-              }
-            }
-          }
+            "content": { "application/json": { "schema": { "$ref": "#/components/schemas/Error" } } }
+          },
+          "401": { "$ref": "#/components/responses/Unauthorized" }
         }
       }
     },
@@ -64,13 +57,9 @@
       "put": {
         "operationId": "updateNote",
         "summary": "Update a note",
+        "description": "Updates a note. The `updated_by` field is automatically set to the authenticated user or agent name.",
         "parameters": [
-          {
-            "name": "id",
-            "in": "path",
-            "required": true,
-            "schema": { "type": "integer" }
-          }
+          { "name": "id", "in": "path", "required": true, "schema": { "type": "integer" } }
         ],
         "requestBody": {
           "required": true,
@@ -83,19 +72,12 @@
         "responses": {
           "200": {
             "description": "Updated note",
-            "content": {
-              "application/json": {
-                "schema": { "$ref": "#/components/schemas/Note" }
-              }
-            }
+            "content": { "application/json": { "schema": { "$ref": "#/components/schemas/Note" } } }
           },
+          "401": { "$ref": "#/components/responses/Unauthorized" },
           "404": {
             "description": "Note not found",
-            "content": {
-              "application/json": {
-                "schema": { "$ref": "#/components/schemas/Error" }
-              }
-            }
+            "content": { "application/json": { "schema": { "$ref": "#/components/schemas/Error" } } }
           }
         }
       },
@@ -103,12 +85,7 @@
         "operationId": "deleteNote",
         "summary": "Delete a note",
         "parameters": [
-          {
-            "name": "id",
-            "in": "path",
-            "required": true,
-            "schema": { "type": "integer" }
-          }
+          { "name": "id", "in": "path", "required": true, "schema": { "type": "integer" } }
         ],
         "responses": {
           "200": {
@@ -117,26 +94,130 @@
               "application/json": {
                 "schema": {
                   "type": "object",
-                  "properties": {
-                    "deleted": { "type": "boolean", "const": true }
-                  }
+                  "properties": { "deleted": { "type": "boolean", "const": true } }
                 }
               }
             }
           },
+          "401": { "$ref": "#/components/responses/Unauthorized" },
           "404": {
             "description": "Note not found",
+            "content": { "application/json": { "schema": { "$ref": "#/components/schemas/Error" } } }
+          }
+        }
+      }
+    },
+    "/api/documents": {
+      "get": {
+        "operationId": "listDocuments",
+        "summary": "List documents",
+        "description": "Returns all markdown documents belonging to the user. Can filter by type and agent_id.",
+        "parameters": [
+          { "name": "type", "in": "query", "schema": { "type": "string", "enum": ["user", "soul", "memory", "log", "chat"] }, "description": "Filter by document type" },
+          { "name": "agent_id", "in": "query", "schema": { "type": "integer" }, "description": "Filter by agent ID" }
+        ],
+        "responses": {
+          "200": {
+            "description": "Array of documents",
             "content": {
               "application/json": {
-                "schema": { "$ref": "#/components/schemas/Error" }
+                "schema": { "type": "array", "items": { "$ref": "#/components/schemas/Document" } }
               }
             }
+          },
+          "401": { "$ref": "#/components/responses/Unauthorized" }
+        }
+      },
+      "post": {
+        "operationId": "uploadDocument",
+        "summary": "Upload a markdown document",
+        "description": "Upload a markdown file. Only agents can call this. The agent_name is automatically recorded.",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": { "$ref": "#/components/schemas/DocumentInput" }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Uploaded document",
+            "content": { "application/json": { "schema": { "$ref": "#/components/schemas/Document" } } }
+          },
+          "400": {
+            "description": "Validation error",
+            "content": { "application/json": { "schema": { "$ref": "#/components/schemas/Error" } } }
+          },
+          "401": { "$ref": "#/components/responses/Unauthorized" },
+          "403": {
+            "description": "Forbidden — only agents can upload documents",
+            "content": { "application/json": { "schema": { "$ref": "#/components/schemas/Error" } } }
+          }
+        }
+      }
+    },
+    "/api/documents/{id}": {
+      "get": {
+        "operationId": "getDocument",
+        "summary": "Get a document",
+        "description": "Returns a single document with its full content.",
+        "parameters": [
+          { "name": "id", "in": "path", "required": true, "schema": { "type": "integer" } }
+        ],
+        "responses": {
+          "200": {
+            "description": "Document",
+            "content": { "application/json": { "schema": { "$ref": "#/components/schemas/Document" } } }
+          },
+          "401": { "$ref": "#/components/responses/Unauthorized" },
+          "404": {
+            "description": "Document not found",
+            "content": { "application/json": { "schema": { "$ref": "#/components/schemas/Error" } } }
+          }
+        }
+      },
+      "delete": {
+        "operationId": "deleteDocument",
+        "summary": "Delete a document",
+        "parameters": [
+          { "name": "id", "in": "path", "required": true, "schema": { "type": "integer" } }
+        ],
+        "responses": {
+          "200": {
+            "description": "Deletion confirmed",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": { "deleted": { "type": "boolean", "const": true } }
+                }
+              }
+            }
+          },
+          "401": { "$ref": "#/components/responses/Unauthorized" },
+          "404": {
+            "description": "Document not found",
+            "content": { "application/json": { "schema": { "$ref": "#/components/schemas/Error" } } }
           }
         }
       }
     }
   },
   "components": {
+    "securitySchemes": {
+      "bearerAuth": {
+        "type": "http",
+        "scheme": "bearer",
+        "description": "User API key or Agent API key. Pass as: Authorization: Bearer mx_..."
+      }
+    },
+    "responses": {
+      "Unauthorized": {
+        "description": "Missing or invalid API key",
+        "content": { "application/json": { "schema": { "$ref": "#/components/schemas/Error" } } }
+      }
+    },
     "schemas": {
       "Note": {
         "type": "object",
@@ -144,9 +225,12 @@
           "id": { "type": "integer", "example": 1 },
           "title": { "type": "string", "example": "My first note" },
           "content": { "type": "string", "example": "Some content here" },
-          "created_at": { "type": "string", "format": "date-time" }
+          "created_by": { "type": "string", "example": "alice", "description": "Name of the user or agent who created this note" },
+          "updated_by": { "type": "string", "nullable": true, "example": "my-assistant", "description": "Name of the user or agent who last updated this note" },
+          "created_at": { "type": "string", "format": "date-time" },
+          "updated_at": { "type": "string", "format": "date-time" }
         },
-        "required": ["id", "title", "content", "created_at"]
+        "required": ["id", "title", "content", "created_by", "created_at", "updated_at"]
       },
       "NoteInput": {
         "type": "object",
@@ -158,9 +242,30 @@
       },
       "Error": {
         "type": "object",
+        "properties": { "error": { "type": "string" } }
+      },
+      "Document": {
+        "type": "object",
         "properties": {
-          "error": { "type": "string" }
-        }
+          "id": { "type": "integer", "example": 1 },
+          "type": { "type": "string", "enum": ["user", "soul", "memory", "log", "chat"], "example": "memory" },
+          "filename": { "type": "string", "example": "session-2026-04-08.md" },
+          "content": { "type": "string", "example": "# Session Notes\n\nToday we discussed..." },
+          "agent_name": { "type": "string", "example": "work-buddy", "description": "Name of the agent that uploaded this document" },
+          "file_created_at": { "type": "string", "format": "date-time", "description": "When the original file was created (provided by the agent)" },
+          "uploaded_at": { "type": "string", "format": "date-time", "description": "When the document was uploaded to MindX" }
+        },
+        "required": ["id", "type", "filename", "content", "agent_name", "file_created_at", "uploaded_at"]
+      },
+      "DocumentInput": {
+        "type": "object",
+        "properties": {
+          "type": { "type": "string", "enum": ["user", "soul", "memory", "log", "chat"], "description": "Document type" },
+          "filename": { "type": "string", "example": "session-2026-04-08.md" },
+          "content": { "type": "string", "description": "Markdown content of the file" },
+          "file_created_at": { "type": "string", "format": "date-time", "description": "When the original file was created" }
+        },
+        "required": ["type", "filename", "content", "file_created_at"]
       }
     }
   }
