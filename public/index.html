@@ -109,6 +109,28 @@
 
     .empty { text-align: center; color: #64748b; padding: 2rem 0; }
     .hidden { display: none; }
+
+    /* Install command */
+    .install-cmd {
+      margin-top: 0.75rem; padding: 1rem;
+      background: rgba(0,0,0,0.3); border: 1px solid rgba(255,255,255,0.1);
+      border-radius: 8px;
+    }
+    .install-cmd .label { font-size: 0.8rem; color: #94a3b8; margin-bottom: 0.5rem; }
+    .install-cmd code {
+      display: block; padding: 0.75rem;
+      background: rgba(0,0,0,0.4); border-radius: 6px;
+      font-family: monospace; font-size: 0.8rem; color: #e2e8f0;
+      white-space: pre-wrap; word-break: break-all; line-height: 1.5;
+    }
+    .install-cmd .copy-row { display: flex; justify-content: flex-end; margin-top: 0.5rem; }
+    .btn-copy {
+      padding: 0.3rem 0.8rem; border: none; border-radius: 6px;
+      font-size: 0.75rem; cursor: pointer;
+      background: rgba(99,102,241,0.2); color: #a5b4fc;
+      transition: background 0.2s;
+    }
+    .btn-copy:hover { background: rgba(99,102,241,0.35); }
   </style>
 </head>
 <body>
@@ -265,12 +287,14 @@
         return;
       }
       container.innerHTML = agents.map(a => `
-        <div class="agent-item">
-          <div>
-            <div class="agent-name">${esc(a.name)}</div>
-            <div class="agent-time">Created ${new Date(a.created_at).toLocaleString()}</div>
+        <div class="agent-item" style="flex-direction:column;align-items:stretch;cursor:pointer;" onclick="toggleInstall(this, '${esc(a.name)}', '${esc(a.key)}')">
+          <div style="display:flex;justify-content:space-between;align-items:center;">
+            <div>
+              <div class="agent-name">${esc(a.name)}</div>
+              <div class="agent-time">Created ${new Date(a.created_at).toLocaleString()}</div>
+            </div>
+            <button class="btn btn-sm btn-danger" onclick="event.stopPropagation();deleteAgent(${a.id}, '${esc(a.name)}')">Delete</button>
           </div>
-          <button class="btn btn-sm btn-danger" onclick="deleteAgent(${a.id}, '${esc(a.name)}')">Delete</button>
         </div>
       `).join('');
     }
@@ -291,9 +315,9 @@
       document.getElementById('agent-name').value = '';
       document.getElementById('new-agent-key').innerHTML = `
         <div class="key-display">
-          <div class="label">API Key for "${esc(agent.name)}" (copy now — won't be shown again):</div>
-          ${esc(agent.key)}
+          <div class="label">Agent "${esc(agent.name)}" created!</div>
         </div>
+        ${installCmdHTML(installCmd(agent.key))}
       `;
       loadAgents();
     }
@@ -427,6 +451,47 @@
     function closeDocs() {
       document.getElementById('doc-viewer').classList.add('hidden');
       document.getElementById('docs').classList.remove('hidden');
+    }
+
+    // --- Install command ---
+
+    function getBaseUrl() {
+      return window.location.origin;
+    }
+
+    function getSkillUrl() {
+      return getBaseUrl() + '/mindx-docs.zip';
+    }
+
+    function installCmd(key) {
+      return `从 ${getSkillUrl()} 安装 skill，并应用下列配置：MINDX_BASE_URL=${getBaseUrl()} MINDX_API_KEY=${key}`;
+    }
+
+    function installCmdHTML(cmd) {
+      const id = 'cmd-' + Math.random().toString(36).slice(2, 8);
+      return `
+        <div class="install-cmd">
+          <div class="label">Install command:</div>
+          <code id="${id}">${esc(cmd)}</code>
+          <div class="copy-row">
+            <button class="btn-copy" onclick="event.stopPropagation();copyCmd('${id}', this)">Copy</button>
+          </div>
+        </div>
+      `;
+    }
+
+    function toggleInstall(el, agentName, key) {
+      const existing = el.querySelector('.install-cmd');
+      if (existing) { existing.remove(); return; }
+      el.insertAdjacentHTML('beforeend', installCmdHTML(installCmd(key)));
+    }
+
+    function copyCmd(id, btn) {
+      const text = document.getElementById(id).textContent;
+      navigator.clipboard.writeText(text).then(() => {
+        btn.textContent = 'Copied!';
+        setTimeout(() => btn.textContent = 'Copy', 1500);
+      });
     }
 
     function esc(s) {

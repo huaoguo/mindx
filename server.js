@@ -87,7 +87,7 @@ dbRouter.get('/agents', auth, async (req, res) => {
     return res.status(403).json({ error: 'only users can manage agents' });
   }
   const { rows } = await pool.query(
-    'SELECT id, name, created_at FROM agents WHERE user_id = $1 ORDER BY created_at',
+    'SELECT id, name, key, created_at FROM agents WHERE user_id = $1 ORDER BY created_at',
     [req.user.id]
   );
   res.json(rows);
