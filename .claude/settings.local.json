@@ -16,7 +16,8 @@
       "Bash(pg_isready)",
       "Bash(docker --version)",
       "Bash(docker run:*)",
-      "Bash(node:*)"
+      "Bash(node:*)",
+      "WebFetch(domain:claudeskills.club)"
     ]
   }
 }

@@ -11,6 +11,11 @@ app.use(express.json());
 // Serve static frontend files
 app.use(express.static(path.join(__dirname, 'public')));
 
+// OpenAPI spec — agents discover skills by fetching this
+app.get('/openapi.json', (req, res) => {
+  res.sendFile(path.join(__dirname, 'openapi.json'));
+});
+
 // Health check
 app.get('/api/hello', (req, res) => {
   res.json({ message: 'Hello from MindX backend!', time: new Date().toISOString() });
