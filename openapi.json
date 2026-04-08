@@ -1,9 +1,9 @@
 {
   "openapi": "3.1.0",
   "info": {
-    "title": "MindX Notes API",
-    "description": "CRUD API for managing notes. Supports user and agent authentication with data isolation per user. Agents share their owner's data and are tracked as the actor on each operation.",
-    "version": "3.0.0"
+    "title": "MindX API",
+    "description": "API for managing markdown documents. Supports user and agent authentication with data isolation per user. Agents upload documents and are tracked as the uploader.",
+    "version": "4.0.0"
   },
   "servers": [
     { "url": "https://mindx-livv.onrender.com", "description": "Production" },
@@ -11,102 +11,6 @@
   ],
   "security": [{ "bearerAuth": [] }],
   "paths": {
-    "/api/notes": {
-      "get": {
-        "operationId": "listNotes",
-        "summary": "List all notes",
-        "description": "Returns all notes belonging to the authenticated user (or the agent's owner), ordered by creation time (newest first).",
-        "responses": {
-          "200": {
-            "description": "Array of notes",
-            "content": {
-              "application/json": {
-                "schema": { "type": "array", "items": { "$ref": "#/components/schemas/Note" } }
-              }
-            }
-          },
-          "401": { "$ref": "#/components/responses/Unauthorized" }
-        }
-      },
-      "post": {
-        "operationId": "createNote",
-        "summary": "Create a note",
-        "description": "Creates a note. The `created_by` field is automatically set to the authenticated user or agent name.",
-        "requestBody": {
-          "required": true,
-          "content": {
-            "application/json": {
-              "schema": { "$ref": "#/components/schemas/NoteInput" }
-            }
-          }
-        },
-        "responses": {
-          "201": {
-            "description": "Created note",
-            "content": { "application/json": { "schema": { "$ref": "#/components/schemas/Note" } } }
-          },
-          "400": {
-            "description": "Validation error",
-            "content": { "application/json": { "schema": { "$ref": "#/components/schemas/Error" } } }
-          },
-          "401": { "$ref": "#/components/responses/Unauthorized" }
-        }
-      }
-    },
-    "/api/notes/{id}": {
-      "put": {
-        "operationId": "updateNote",
-        "summary": "Update a note",
-        "description": "Updates a note. The `updated_by` field is automatically set to the authenticated user or agent name.",
-        "parameters": [
-          { "name": "id", "in": "path", "required": true, "schema": { "type": "integer" } }
-        ],
-        "requestBody": {
-          "required": true,
-          "content": {
-            "application/json": {
-              "schema": { "$ref": "#/components/schemas/NoteInput" }
-            }
-          }
-        },
-        "responses": {
-          "200": {
-            "description": "Updated note",
-            "content": { "application/json": { "schema": { "$ref": "#/components/schemas/Note" } } }
-          },
-          "401": { "$ref": "#/components/responses/Unauthorized" },
-          "404": {
-            "description": "Note not found",
-            "content": { "application/json": { "schema": { "$ref": "#/components/schemas/Error" } } }
-          }
-        }
-      },
-      "delete": {
-        "operationId": "deleteNote",
-        "summary": "Delete a note",
-        "parameters": [
-          { "name": "id", "in": "path", "required": true, "schema": { "type": "integer" } }
-        ],
-        "responses": {
-          "200": {
-            "description": "Deletion confirmed",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "type": "object",
-                  "properties": { "deleted": { "type": "boolean", "const": true } }
-                }
-              }
-            }
-          },
-          "401": { "$ref": "#/components/responses/Unauthorized" },
-          "404": {
-            "description": "Note not found",
-            "content": { "application/json": { "schema": { "$ref": "#/components/schemas/Error" } } }
-          }
-        }
-      }
-    },
     "/api/documents": {
       "get": {
         "operationId": "listDocuments",
@@ -219,27 +123,6 @@
       }
     },
     "schemas": {
-      "Note": {
-        "type": "object",
-        "properties": {
-          "id": { "type": "integer", "example": 1 },
-          "title": { "type": "string", "example": "My first note" },
-          "content": { "type": "string", "example": "Some content here" },
-          "created_by": { "type": "string", "example": "alice", "description": "Name of the user or agent who created this note" },
-          "updated_by": { "type": "string", "nullable": true, "example": "my-assistant", "description": "Name of the user or agent who last updated this note" },
-          "created_at": { "type": "string", "format": "date-time" },
-          "updated_at": { "type": "string", "format": "date-time" }
-        },
-        "required": ["id", "title", "content", "created_by", "created_at", "updated_at"]
-      },
-      "NoteInput": {
-        "type": "object",
-        "properties": {
-          "title": { "type": "string", "example": "My note" },
-          "content": { "type": "string", "example": "Optional content" }
-        },
-        "required": ["title"]
-      },
       "Error": {
         "type": "object",
         "properties": { "error": { "type": "string" } }
