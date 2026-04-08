@@ -8,52 +8,150 @@
     * { margin: 0; padding: 0; box-sizing: border-box; }
     body {
       font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
-      display: flex; justify-content: center; align-items: center;
       min-height: 100vh;
       background: linear-gradient(135deg, #0f172a, #1e293b);
       color: #e2e8f0;
+      padding: 2rem;
     }
-    .card {
-      text-align: center; padding: 3rem;
+    .container { max-width: 640px; margin: 0 auto; }
+    h1 { font-size: 2rem; text-align: center; margin-bottom: 2rem; }
+
+    /* Form */
+    .form {
+      display: flex; flex-direction: column; gap: 0.75rem;
+      padding: 1.5rem; margin-bottom: 2rem;
       background: rgba(255,255,255,0.05);
-      border-radius: 16px; border: 1px solid rgba(255,255,255,0.1);
-      backdrop-filter: blur(10px);
+      border-radius: 12px; border: 1px solid rgba(255,255,255,0.1);
     }
-    h1 { font-size: 2.5rem; margin-bottom: 1rem; }
-    #api-result {
-      margin-top: 1.5rem; padding: 1rem;
-      background: rgba(0,0,0,0.3); border-radius: 8px;
-      font-family: monospace; font-size: 0.9rem;
-      color: #94a3b8;
+    .form input, .form textarea {
+      width: 100%; padding: 0.6rem 0.8rem;
+      background: rgba(0,0,0,0.3); border: 1px solid rgba(255,255,255,0.15);
+      border-radius: 8px; color: #e2e8f0; font-size: 0.95rem;
+      font-family: inherit;
     }
-    button {
-      margin-top: 1.5rem; padding: 0.75rem 2rem;
-      background: #3b82f6; color: white; border: none;
-      border-radius: 8px; font-size: 1rem; cursor: pointer;
-      transition: background 0.2s;
+    .form textarea { resize: vertical; min-height: 60px; }
+    .form-actions { display: flex; gap: 0.5rem; }
+    .btn {
+      padding: 0.6rem 1.2rem; border: none; border-radius: 8px;
+      font-size: 0.9rem; cursor: pointer; transition: background 0.2s;
     }
-    button:hover { background: #2563eb; }
+    .btn-primary { background: #3b82f6; color: white; }
+    .btn-primary:hover { background: #2563eb; }
+    .btn-secondary { background: rgba(255,255,255,0.1); color: #94a3b8; }
+    .btn-secondary:hover { background: rgba(255,255,255,0.15); }
+
+    /* Notes list */
+    .note {
+      padding: 1rem 1.25rem; margin-bottom: 0.75rem;
+      background: rgba(255,255,255,0.05);
+      border-radius: 10px; border: 1px solid rgba(255,255,255,0.08);
+    }
+    .note-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.4rem; }
+    .note-title { font-weight: 600; font-size: 1.05rem; }
+    .note-time { font-size: 0.75rem; color: #64748b; }
+    .note-content { color: #94a3b8; font-size: 0.9rem; white-space: pre-wrap; }
+    .note-actions { margin-top: 0.6rem; display: flex; gap: 0.4rem; }
+    .btn-sm { padding: 0.3rem 0.7rem; font-size: 0.8rem; border-radius: 6px; }
+    .btn-danger { background: rgba(239,68,68,0.2); color: #f87171; }
+    .btn-danger:hover { background: rgba(239,68,68,0.35); }
+    .empty { text-align: center; color: #64748b; padding: 3rem 0; }
   </style>
 </head>
 <body>
-  <div class="card">
-    <h1>MindX</h1>
-    <p>Minimal full-stack app deployed on Render</p>
-    <button onclick="callApi()">Call Backend API</button>
-    <div id="api-result">Click the button to call /api/hello</div>
+  <div class="container">
+    <h1>MindX Notes</h1>
+
+    <div class="form">
+      <input id="title" placeholder="Title" />
+      <textarea id="content" placeholder="Content (optional)"></textarea>
+      <div class="form-actions">
+        <button class="btn btn-primary" onclick="saveNote()">Add Note</button>
+        <button class="btn btn-secondary" id="cancelBtn" style="display:none" onclick="cancelEdit()">Cancel</button>
+      </div>
+    </div>
+
+    <div id="notes"></div>
   </div>
+
   <script>
-    async function callApi() {
-      const el = document.getElementById('api-result');
-      el.textContent = 'Loading...';
-      try {
-        const res = await fetch('/api/hello');
-        const data = await res.json();
-        el.textContent = JSON.stringify(data, null, 2);
-      } catch (err) {
-        el.textContent = 'Error: ' + err.message;
+    let editingId = null;
+
+    async function loadNotes() {
+      const res = await fetch('/api/notes');
+      const notes = await res.json();
+      const container = document.getElementById('notes');
+      if (notes.length === 0) {
+        container.innerHTML = '<div class="empty">No notes yet. Create one above!</div>';
+        return;
       }
+      container.innerHTML = notes.map(n => `
+        <div class="note">
+          <div class="note-header">
+            <span class="note-title">${esc(n.title)}</span>
+            <span class="note-time">${new Date(n.created_at).toLocaleString()}</span>
+          </div>
+          ${n.content ? `<div class="note-content">${esc(n.content)}</div>` : ''}
+          <div class="note-actions">
+            <button class="btn btn-sm btn-secondary" onclick="startEdit(${n.id}, ${esc(JSON.stringify(n.title))}, ${esc(JSON.stringify(n.content))})">Edit</button>
+            <button class="btn btn-sm btn-danger" onclick="deleteNote(${n.id})">Delete</button>
+          </div>
+        </div>
+      `).join('');
     }
+
+    async function saveNote() {
+      const title = document.getElementById('title').value.trim();
+      const content = document.getElementById('content').value.trim();
+      if (!title) return alert('Title is required');
+
+      if (editingId) {
+        await fetch(`/api/notes/${editingId}`, {
+          method: 'PUT',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ title, content }),
+        });
+        cancelEdit();
+      } else {
+        await fetch('/api/notes', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ title, content }),
+        });
+      }
+      document.getElementById('title').value = '';
+      document.getElementById('content').value = '';
+      loadNotes();
+    }
+
+    function startEdit(id, title, content) {
+      editingId = id;
+      document.getElementById('title').value = title;
+      document.getElementById('content').value = content || '';
+      document.getElementById('cancelBtn').style.display = '';
+      document.querySelector('.btn-primary').textContent = 'Update';
+    }
+
+    function cancelEdit() {
+      editingId = null;
+      document.getElementById('title').value = '';
+      document.getElementById('content').value = '';
+      document.getElementById('cancelBtn').style.display = 'none';
+      document.querySelector('.btn-primary').textContent = 'Add Note';
+    }
+
+    async function deleteNote(id) {
+      if (!confirm('Delete this note?')) return;
+      await fetch(`/api/notes/${id}`, { method: 'DELETE' });
+      loadNotes();
+    }
+
+    function esc(s) {
+      const d = document.createElement('div');
+      d.textContent = s;
+      return d.innerHTML;
+    }
+
+    loadNotes();
   </script>
 </body>
 </html>
