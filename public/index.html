@@ -131,6 +131,19 @@
       transition: background 0.2s;
     }
     .btn-copy:hover { background: rgba(99,102,241,0.35); }
+
+    /* Status badges */
+    .status-badge {
+      display: inline-block; padding: 0.15rem 0.5rem; border-radius: 4px;
+      font-size: 0.7rem; font-weight: 500;
+    }
+    .status-idle { background: rgba(100,116,139,0.2); color: #94a3b8; }
+    .status-installing {
+      background: rgba(250,204,21,0.15); color: #fbbf24;
+      animation: pulse 1.5s ease-in-out infinite;
+    }
+    .status-connected { background: rgba(34,197,94,0.15); color: #4ade80; }
+    @keyframes pulse { 0%,100% { opacity: 1; } 50% { opacity: 0.5; } }
   </style>
 </head>
 <body>
@@ -218,6 +231,7 @@
     let editingId = null;
     let apiKey = null;
     let userName = null;
+    let agentPollTimer = null;
 
     function authHeaders() {
       return { 'Authorization': 'Bearer ' + apiKey, 'Content-Type': 'application/json' };
@@ -233,7 +247,8 @@
       document.getElementById('tab-agents').classList.toggle('hidden', tab !== 'agents');
       if (tab === 'notes') loadNotes();
       if (tab === 'docs') loadDocs();
-      if (tab === 'agents') loadAgents();
+      if (tab === 'agents') { loadAgents(); startAgentPoll(); }
+      else { stopAgentPoll(); }
     }
 
     // --- Auth ---
@@ -256,6 +271,7 @@
     }
 
     function logout() {
+      stopAgentPoll();
       apiKey = null;
       userName = null;
       localStorage.removeItem('apiKey');
@@ -287,10 +303,10 @@
         return;
       }
       container.innerHTML = agents.map(a => `
-        <div class="agent-item" style="flex-direction:column;align-items:stretch;cursor:pointer;" onclick="toggleInstall(this, '${esc(a.name)}', '${esc(a.key)}')">
+        <div class="agent-item" data-agent-id="${a.id}" style="flex-direction:column;align-items:stretch;cursor:pointer;" onclick="toggleInstall(this, ${a.id}, '${esc(a.name)}', '${esc(a.key)}')">
           <div style="display:flex;justify-content:space-between;align-items:center;">
             <div>
-              <div class="agent-name">${esc(a.name)}</div>
+              <div class="agent-name">${esc(a.name)} ${statusBadge(a.status)}</div>
               <div class="agent-time">Created ${new Date(a.created_at).toLocaleString()}</div>
             </div>
             <button class="btn btn-sm btn-danger" onclick="event.stopPropagation();deleteAgent(${a.id}, '${esc(a.name)}')">Delete</button>
@@ -317,7 +333,7 @@
         <div class="key-display">
           <div class="label">Agent "${esc(agent.name)}" created!</div>
         </div>
-        ${installCmdHTML(installCmd(agent.key))}
+        ${installCmdHTML(installCmd(agent.id, agent.key))}
       `;
       loadAgents();
     }
@@ -453,18 +469,55 @@
       document.getElementById('docs').classList.remove('hidden');
     }
 
+    // --- Agent status ---
+
+    const STATUS_LABELS = {
+      idle: 'Not installed',
+      installing: 'Installing...',
+      connected: 'Connected',
+    };
+
+    function statusBadge(status) {
+      const label = STATUS_LABELS[status] || status;
+      return `<span class="status-badge status-${esc(status)}">${esc(label)}</span>`;
+    }
+
+    function startAgentPoll() {
+      stopAgentPoll();
+      agentPollTimer = setInterval(pollAgentStatus, 3000);
+    }
+
+    function stopAgentPoll() {
+      if (agentPollTimer) { clearInterval(agentPollTimer); agentPollTimer = null; }
+    }
+
+    async function pollAgentStatus() {
+      const res = await fetch('/api/agents', { headers: authHeaders() });
+      if (!res.ok) return;
+      const agents = await res.json();
+      for (const a of agents) {
+        const el = document.querySelector(`[data-agent-id="${a.id}"] .agent-name`);
+        if (!el) continue;
+        const badge = el.querySelector('.status-badge');
+        if (badge) {
+          badge.className = `status-badge status-${a.status}`;
+          badge.textContent = STATUS_LABELS[a.status] || a.status;
+        }
+      }
+    }
+
     // --- Install command ---
 
     function getBaseUrl() {
       return window.location.origin;
     }
 
-    function getSkillUrl() {
-      return getBaseUrl() + '/mindx-docs.zip';
+    function getSkillUrl(agentId, key) {
+      return `${getBaseUrl()}/api/agents/${agentId}/install?key=${key}`;
     }
 
-    function installCmd(key) {
-      return `从 ${getSkillUrl()} 安装 skill，并应用下列配置：MINDX_BASE_URL=${getBaseUrl()} MINDX_API_KEY=${key}`;
+    function installCmd(agentId, key) {
+      return `从 ${getSkillUrl(agentId, key)} 安装 skill，并应用下列配置：MINDX_BASE_URL=${getBaseUrl()} MINDX_API_KEY=${key}`;
     }
 
     function installCmdHTML(cmd) {
@@ -480,10 +533,10 @@
       `;
     }
 
-    function toggleInstall(el, agentName, key) {
+    function toggleInstall(el, agentId, agentName, key) {
       const existing = el.querySelector('.install-cmd');
       if (existing) { existing.remove(); return; }
-      el.insertAdjacentHTML('beforeend', installCmdHTML(installCmd(key)));
+      el.insertAdjacentHTML('beforeend', installCmdHTML(installCmd(agentId, key)));
     }
 
     function copyCmd(id, btn) {

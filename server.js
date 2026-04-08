@@ -16,6 +16,19 @@ app.get('/api/hello', (req, res) => {
   res.json({ message: 'Hello from MindX backend!', time: new Date().toISOString() });
 });
 
+// Skill install endpoint — sets agent status to installing, then redirects to zip
+app.get('/api/agents/:id/install', async (req, res) => {
+  if (!hasDB) return res.status(503).json({ error: 'database not configured' });
+  const key = req.query.key;
+  if (!key) return res.status(400).json({ error: 'missing key query parameter' });
+
+  const { rows } = await pool.query('SELECT id FROM agents WHERE id = $1 AND key = $2', [req.params.id, key]);
+  if (rows.length === 0) return res.status(401).json({ error: 'invalid agent id or key' });
+
+  await pool.query('UPDATE agents SET status = $1 WHERE id = $2', ['installing', req.params.id]);
+  res.redirect('/mindx-docs.zip');
+});
+
 // --- Routes that require database ---
 
 const dbRouter = express.Router();
@@ -87,7 +100,7 @@ dbRouter.get('/agents', auth, async (req, res) => {
     return res.status(403).json({ error: 'only users can manage agents' });
   }
   const { rows } = await pool.query(
-    'SELECT id, name, key, created_at FROM agents WHERE user_id = $1 ORDER BY created_at',
+    'SELECT id, name, key, status, created_at FROM agents WHERE user_id = $1 ORDER BY created_at',
     [req.user.id]
   );
   res.json(rows);
@@ -117,6 +130,40 @@ dbRouter.delete('/agents/:id', auth, async (req, res) => {
   );
   if (rowCount === 0) return res.status(404).json({ error: 'agent not found' });
   res.json({ deleted: true });
+});
+
+// Agent self-info (for agents to discover their own id)
+dbRouter.get('/agents/me', auth, async (req, res) => {
+  if (req.actor.type !== 'agent') {
+    return res.status(403).json({ error: 'only agents can call this' });
+  }
+  const { rows } = await pool.query(
+    'SELECT id, name, status, created_at FROM agents WHERE id = $1',
+    [req.actor.agentId]
+  );
+  res.json(rows[0]);
+});
+
+// Agent status update (agent updates its own status)
+const VALID_STATUSES = ['idle', 'installing', 'connected'];
+
+dbRouter.put('/agents/:id/status', auth, async (req, res) => {
+  if (req.actor.type !== 'agent') {
+    return res.status(403).json({ error: 'only agents can update status' });
+  }
+  if (req.actor.agentId !== parseInt(req.params.id)) {
+    return res.status(403).json({ error: 'agents can only update their own status' });
+  }
+  const { status } = req.body;
+  if (!status || !VALID_STATUSES.includes(status)) {
+    return res.status(400).json({ error: `status must be one of: ${VALID_STATUSES.join(', ')}` });
+  }
+  const { rows } = await pool.query(
+    'UPDATE agents SET status = $1 WHERE id = $2 RETURNING id, name, status',
+    [status, req.params.id]
+  );
+  if (rows.length === 0) return res.status(404).json({ error: 'agent not found' });
+  res.json(rows[0]);
 });
 
 // --- Notes CRUD ---

@@ -31,6 +31,7 @@ async function initDB() {
       user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
       name VARCHAR(255) NOT NULL,
       key VARCHAR(64) UNIQUE NOT NULL,
+      status VARCHAR(20) DEFAULT 'idle',
       created_at TIMESTAMP DEFAULT NOW(),
       UNIQUE(user_id, name)
     )

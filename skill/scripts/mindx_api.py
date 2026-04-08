@@ -87,6 +87,13 @@ def docs_delete(args):
     pp(api_request("DELETE", f"{BASE_URL}/api/documents/{args.id}"))
 
 
+# ── Status ──────────────────────────────────────────────────────────────
+
+def set_status(args):
+    me = api_request("GET", f"{BASE_URL}/api/agents/me")
+    pp(api_request("PUT", f"{BASE_URL}/api/agents/{me['id']}/status", data={"status": args.status}))
+
+
 # ── CLI ──────────────────────────────────────────────────────────────────
 
 def main():
@@ -109,6 +116,9 @@ def main():
     p = subparsers.add_parser("delete", help="Delete a document")
     p.add_argument("--id", required=True, type=int, help="Document ID")
 
+    p = subparsers.add_parser("set-status", help="Update agent status")
+    p.add_argument("--status", required=True, choices=["idle", "installing", "connected"], help="New status")
+
     args = parser.parse_args()
 
     dispatch = {
@@ -116,6 +126,7 @@ def main():
         "upload": docs_upload,
         "get": docs_get,
         "delete": docs_delete,
+        "set-status": set_status,
     }
 
     handler = dispatch.get(args.action)
