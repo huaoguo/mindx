@@ -1,6 +1,14 @@
 const express = require('express');
 const path = require('path');
+const { execSync } = require('child_process');
 const { pool, hasDB, initDB, generateKey } = require('./db');
+
+// Build skill zip on every server start (ensures zip is always up-to-date)
+try {
+  execSync('node scripts/build-skill.js', { cwd: __dirname, stdio: 'inherit' });
+} catch (e) {
+  console.warn('Warning: failed to build skill zip:', e.message);
+}
 
 const app = express();
 const PORT = process.env.PORT || 3000;
