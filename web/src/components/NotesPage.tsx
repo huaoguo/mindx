@@ -11,6 +11,7 @@ export default function NotesPage() {
   const [title, setTitle] = useState('');
   const [content, setContent] = useState('');
   const [editingId, setEditingId] = useState<number | null>(null);
+  const [showForm, setShowForm] = useState(false);
   const [loading, setLoading] = useState(false);
 
   useEffect(() => {
@@ -23,6 +24,7 @@ export default function NotesPage() {
       setEditingId(state.editId);
       setTitle(state.editTitle ?? '');
       setContent(state.editContent ?? '');
+      setShowForm(true);
       window.history.replaceState({}, document.title);
     }
   }, [location.state]);
@@ -70,76 +72,91 @@ export default function NotesPage() {
     setTitle('');
     setContent('');
     setEditingId(null);
+    setShowForm(false);
   }
 
   return (
     <div className="min-h-screen bg-slate-900 text-slate-200 p-6">
-      {/* Create / Edit Form */}
-      <div className="max-w-3xl mx-auto mb-8 bg-slate-800 rounded-lg p-6 shadow-lg">
-        <form onSubmit={handleSubmit} className="space-y-4">
-          <input
-            type="text"
-            value={title}
-            onChange={(e) => setTitle(e.target.value)}
-            placeholder="标题"
-            className="w-full bg-slate-700 text-slate-200 placeholder-slate-400 rounded px-4 py-2 outline-none focus:ring-2 focus:ring-blue-500"
-          />
-          <textarea
-            value={content}
-            onChange={(e) => setContent(e.target.value)}
-            placeholder="内容（可选）"
-            rows={4}
-            className="w-full bg-slate-700 text-slate-200 placeholder-slate-400 rounded px-4 py-2 outline-none focus:ring-2 focus:ring-blue-500 resize-y"
-          />
-          <div className="flex gap-3">
+      <div className="max-w-3xl mx-auto">
+        {/* Top bar with add button */}
+        {!showForm && (
+          <div className="mb-4">
             <button
-              type="submit"
-              disabled={loading}
-              className="bg-blue-500 hover:bg-blue-600 disabled:opacity-50 text-white font-medium rounded px-5 py-2 transition-colors"
+              onClick={() => setShowForm(true)}
+              className="bg-blue-500 hover:bg-blue-600 text-white font-medium rounded px-4 py-2 transition-colors"
             >
-              {editingId ? '更新' : '添加笔记'}
+              + 添加笔记
             </button>
-            {editingId && (
-              <button
-                type="button"
-                onClick={clearForm}
-                className="bg-slate-600 hover:bg-slate-500 text-slate-200 font-medium rounded px-5 py-2 transition-colors"
-              >
-                取消
-              </button>
-            )}
           </div>
-        </form>
-      </div>
-
-      {/* Notes List */}
-      <div className="max-w-3xl mx-auto space-y-3">
-        {notes.map((note) => (
-          <div
-            key={note.id}
-            onClick={() => navigate(`/notes/${note.id}`)}
-            className="bg-slate-800 hover:bg-slate-750 hover:ring-1 hover:ring-blue-500/40 rounded-lg p-4 cursor-pointer transition-all shadow"
-          >
-            <div className="font-bold text-slate-100 mb-1">
-              {note.title}
-              {insightCounts[note.id] > 0 && (
-                <span className="ml-2 text-xs font-normal bg-emerald-500/20 text-emerald-400 rounded-full px-2 py-0.5">
-                  {insightCounts[note.id]} 条洞察
-                </span>
-              )}
-            </div>
-            <div className="text-sm text-slate-400">
-              创建者 {note.created_by ?? '未知'}
-              {' · '}
-              编辑者 {note.updated_by ?? '未知'}
-              {' · '}
-              {new Date(note.updated_at ?? note.created_at).toLocaleString('zh-CN')}
-            </div>
-          </div>
-        ))}
-        {notes.length === 0 && (
-          <div className="text-center text-slate-500 py-12">暂无笔记</div>
         )}
+
+        {/* Create / Edit Form */}
+        {showForm && (
+          <div className="mb-6 bg-slate-800 rounded-lg p-6 shadow-lg">
+            <form onSubmit={handleSubmit} className="space-y-4">
+              <input
+                type="text"
+                value={title}
+                onChange={(e) => setTitle(e.target.value)}
+                placeholder="标题"
+                autoFocus
+                className="w-full bg-slate-700 text-slate-200 placeholder-slate-400 rounded px-4 py-2 outline-none focus:ring-2 focus:ring-blue-500"
+              />
+              <textarea
+                value={content}
+                onChange={(e) => setContent(e.target.value)}
+                placeholder="内容（可选）"
+                rows={4}
+                className="w-full bg-slate-700 text-slate-200 placeholder-slate-400 rounded px-4 py-2 outline-none focus:ring-2 focus:ring-blue-500 resize-y"
+              />
+              <div className="flex gap-3">
+                <button
+                  type="submit"
+                  disabled={loading}
+                  className="bg-blue-500 hover:bg-blue-600 disabled:opacity-50 text-white font-medium rounded px-5 py-2 transition-colors"
+                >
+                  {editingId ? '更新' : '添加'}
+                </button>
+                <button
+                  type="button"
+                  onClick={clearForm}
+                  className="bg-slate-600 hover:bg-slate-500 text-slate-200 font-medium rounded px-5 py-2 transition-colors"
+                >
+                  取消
+                </button>
+              </div>
+            </form>
+          </div>
+        )}
+
+        {/* Notes List */}
+        <div className="space-y-3">
+          {notes.map((note) => (
+            <div
+              key={note.id}
+              onClick={() => navigate(`/notes/${note.id}`)}
+              className="bg-slate-800 hover:bg-slate-750 hover:ring-1 hover:ring-blue-500/40 rounded-lg p-4 cursor-pointer transition-all shadow"
+            >
+              <div className="font-bold text-slate-100 mb-1">
+                {note.title}
+                {insightCounts[note.id] > 0 && (
+                  <span className="ml-2 text-xs font-normal bg-emerald-500/20 text-emerald-400 rounded-full px-2 py-0.5">
+                    {insightCounts[note.id]} 条洞察
+                  </span>
+                )}
+              </div>
+              <div className="text-sm text-slate-400">
+                创建者 {note.created_by ?? '未知'}
+                {note.updated_by ? ` · 编辑者 ${note.updated_by}` : ''}
+                {' · '}
+                {new Date(note.updated_at ?? note.created_at).toLocaleString('zh-CN')}
+              </div>
+            </div>
+          ))}
+          {notes.length === 0 && !showForm && (
+            <div className="text-center text-slate-500 py-12">暂无笔记</div>
+          )}
+        </div>
       </div>
     </div>
   );
