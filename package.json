@@ -5,7 +5,7 @@
   "main": "index.js",
   "scripts": {
     "build:skill": "node scripts/build-skill.js",
-    "build:web": "cd web && npm run build",
+    "build:web": "cd web && npm install && npm run build",
     "prestart": "npm run build:skill && npm run build:web",
     "start": "node server.js",
     "predev": "npm run build:skill && npm run build:web",
