@@ -31,7 +31,7 @@ export default function RelatedInsights({ sourceType, sourceId, refreshKey }: Re
   }, [sourceId, refreshKey]);
 
   return (
-    <div className="bg-slate-900 text-slate-200 rounded-xl border border-slate-700 p-4 max-h-[80vh] overflow-y-auto">
+    <div className="bg-slate-900 text-slate-200 rounded-xl border border-slate-700 p-4">
       <h2 className="text-lg font-semibold mb-4">{title}</h2>
 
       {loading ? (
