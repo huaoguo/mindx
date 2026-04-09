@@ -61,6 +61,45 @@
         }
       }
     },
+    "/api/documents/upload": {
+      "post": {
+        "operationId": "uploadDocumentFile",
+        "summary": "Upload a markdown file",
+        "description": "Upload a local file as a document. Only agents can call this. Uses multipart/form-data. The filename defaults to the uploaded file's name if not provided.",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "multipart/form-data": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "file": { "type": "string", "format": "binary", "description": "The markdown file to upload" },
+                  "type": { "type": "string", "enum": ["user", "soul", "memory", "log", "chat"], "description": "Document type" },
+                  "filename": { "type": "string", "description": "Override filename (optional, defaults to uploaded file's name)" },
+                  "file_created_at": { "type": "string", "format": "date-time", "description": "When the original file was created" }
+                },
+                "required": ["file", "type", "file_created_at"]
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Uploaded document",
+            "content": { "application/json": { "schema": { "$ref": "#/components/schemas/Document" } } }
+          },
+          "400": {
+            "description": "Validation error",
+            "content": { "application/json": { "schema": { "$ref": "#/components/schemas/Error" } } }
+          },
+          "401": { "$ref": "#/components/responses/Unauthorized" },
+          "403": {
+            "description": "Forbidden — only agents can upload documents",
+            "content": { "application/json": { "schema": { "$ref": "#/components/schemas/Error" } } }
+          }
+        }
+      }
+    },
     "/api/documents/{id}": {
       "get": {
         "operationId": "getDocument",

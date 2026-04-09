@@ -1,7 +1,10 @@
 const express = require('express');
 const path = require('path');
 const { execSync } = require('child_process');
+const multer = require('multer');
 const { pool, hasDB, initDB, generateKey } = require('./db');
+
+const upload = multer({ storage: multer.memoryStorage(), limits: { fileSize: 10 * 1024 * 1024 } });
 
 // Build skill zip on every server start (ensures zip is always up-to-date)
 try {
@@ -13,7 +16,7 @@ try {
 const app = express();
 const PORT = process.env.PORT || 3000;
 
-app.use(express.json());
+app.use(express.json({ limit: '10mb' }));
 app.use(express.static(path.join(__dirname, 'public')));
 
 app.get('/openapi.json', (req, res) => {
@@ -254,6 +257,30 @@ dbRouter.post('/documents', auth, async (req, res) => {
   if (!filename) return res.status(400).json({ error: 'filename is required' });
   if (!content) return res.status(400).json({ error: 'content is required' });
   if (!file_created_at) return res.status(400).json({ error: 'file_created_at is required' });
+
+  const { rows } = await pool.query(
+    'INSERT INTO documents (user_id, agent_id, type, filename, content, file_created_at) VALUES ($1, $2, $3, $4, $5, $6) RETURNING id, type, filename, content, file_created_at, uploaded_at',
+    [req.user.id, req.actor.agentId, type, filename, content, file_created_at]
+  );
+  const row = rows[0];
+  row.agent_name = req.actor.name;
+  res.status(201).json(row);
+});
+
+// Upload document via file (multipart/form-data)
+dbRouter.post('/documents/upload', auth, upload.single('file'), async (req, res) => {
+  if (req.actor.type !== 'agent') {
+    return res.status(403).json({ error: 'only agents can upload documents' });
+  }
+  const { type, file_created_at } = req.body;
+  if (!type || !VALID_DOC_TYPES.includes(type)) {
+    return res.status(400).json({ error: `type must be one of: ${VALID_DOC_TYPES.join(', ')}` });
+  }
+  if (!req.file) return res.status(400).json({ error: 'file is required' });
+  if (!file_created_at) return res.status(400).json({ error: 'file_created_at is required' });
+
+  const filename = req.body.filename || req.file.originalname;
+  const content = req.file.buffer.toString('utf-8');
 
   const { rows } = await pool.query(
     'INSERT INTO documents (user_id, agent_id, type, filename, content, file_created_at) VALUES ($1, $2, $3, $4, $5, $6) RETURNING id, type, filename, content, file_created_at, uploaded_at',
