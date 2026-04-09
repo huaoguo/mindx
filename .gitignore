@@ -1,4 +1,5 @@
 node_modules/
 .DS_Store
 public/mindx-docs.zip
+public/dist/
 skill/config.json

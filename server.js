@@ -18,6 +18,7 @@ const app = express();
 const PORT = process.env.PORT || 3000;
 
 app.use(express.json({ limit: '10mb' }));
+app.use(express.static(path.join(__dirname, 'public/dist')));
 app.use(express.static(path.join(__dirname, 'public')));
 
 app.get('/openapi.json', (req, res) => {
@@ -314,6 +315,11 @@ dbRouter.delete('/documents/:id', auth, async (req, res) => {
 dbRouter.use(auth, insightsRouter);
 
 app.use('/api', dbRouter);
+
+// SPA fallback: non-API routes serve index.html
+app.get('{*path}', (req, res) => {
+  res.sendFile(path.join(__dirname, 'public/dist/index.html'));
+});
 
 // Start server & init database
 initDB()
