@@ -3,7 +3,8 @@ import { api, setApiKey, getApiKey, type User } from '../lib/api';
 
 interface AuthCtx {
   user: { name: string } | null;
-  login: (name: string) => Promise<void>;
+  login: (name: string, password: string) => Promise<void>;
+  register: (name: string, password: string) => Promise<void>;
   logout: () => void;
 }
 
@@ -16,8 +17,15 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     return name && key ? { name } : null;
   });
 
-  const login = useCallback(async (name: string) => {
-    const data: User = await api.login(name);
+  const login = useCallback(async (name: string, password: string) => {
+    const data: User = await api.login(name, password);
+    setApiKey(data.key);
+    localStorage.setItem('userName', data.name);
+    setUser({ name: data.name });
+  }, []);
+
+  const register = useCallback(async (name: string, password: string) => {
+    const data: User = await api.register(name, password);
     setApiKey(data.key);
     localStorage.setItem('userName', data.name);
     setUser({ name: data.name });
@@ -30,7 +38,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }, []);
 
   return (
-    <AuthContext.Provider value={{ user, login, logout }}>
+    <AuthContext.Provider value={{ user, login, register, logout }}>
       {children}
     </AuthContext.Provider>
   );

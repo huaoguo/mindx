@@ -81,7 +81,8 @@ async function request<T>(method: string, path: string, body?: unknown): Promise
     headers,
     body: body ? JSON.stringify(body) : undefined,
   });
-  if (res.status === 401) {
+  if (res.status === 401 && _apiKey && path !== '/api/login' && path !== '/api/register') {
+    // Token invalid — auto logout (but not for login/register requests)
     setApiKey(null);
     localStorage.removeItem('userName');
     window.location.href = '/';
@@ -97,7 +98,10 @@ async function request<T>(method: string, path: string, body?: unknown): Promise
 // --- API methods ---
 
 export const api = {
-  login: (name: string) => request<User>('POST', '/api/login', { name }),
+  login: (name: string, password: string) => request<User>('POST', '/api/login', { name, password }),
+  register: (name: string, password: string) => request<User>('POST', '/api/register', { name, password }),
+  changePassword: (oldPassword: string, newPassword: string) =>
+    request<{ success: boolean }>('PUT', '/api/user/password', { oldPassword, newPassword }),
 
   // Notes
   listNotes: () => request<Note[]>('GET', '/api/notes'),

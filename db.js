@@ -1,5 +1,6 @@
 const { Pool } = require('pg');
 const crypto = require('crypto');
+const bcrypt = require('bcryptjs');
 
 const hasDB = !!process.env.DATABASE_URL;
 
@@ -22,6 +23,7 @@ async function initDB() {
       id SERIAL PRIMARY KEY,
       name VARCHAR(255) UNIQUE NOT NULL,
       key VARCHAR(64) UNIQUE NOT NULL,
+      password_hash VARCHAR(255),
       created_at TIMESTAMP DEFAULT NOW()
     )
   `);
@@ -88,6 +90,7 @@ async function initDB() {
   `);
 
   // Migrations — add columns that may not exist on older databases
+  await pool.query(`ALTER TABLE users ADD COLUMN IF NOT EXISTS password_hash VARCHAR(255)`).catch(() => {});
   await pool.query(`ALTER TABLE insights ADD COLUMN IF NOT EXISTS source_name VARCHAR(255)`).catch(() => {});
 
   // Backfill source_name for existing insights
@@ -102,6 +105,16 @@ async function initDB() {
     WHERE insights.source_type = 'note' AND insights.source_id = n.id AND insights.source_name IS NULL
   `).catch(() => {});
 
+  // Backfill password_hash for existing users (default: 123123)
+  const usersWithoutPassword = await pool.query(
+    'SELECT id FROM users WHERE password_hash IS NULL'
+  ).catch(() => ({ rows: [] }));
+  if (usersWithoutPassword.rows.length > 0) {
+    const hash = await bcrypt.hash('123123', 10);
+    await pool.query('UPDATE users SET password_hash = $1 WHERE password_hash IS NULL', [hash]).catch(() => {});
+    console.log(`Backfilled password for ${usersWithoutPassword.rows.length} existing user(s)`);
+  }
+
   console.log('Database initialized');
 }
 
@@ -109,4 +122,4 @@ function generateKey() {
   return 'mx_' + crypto.randomBytes(24).toString('hex');
 }
 
-module.exports = { pool, hasDB, initDB, generateKey };
+module.exports = { pool, hasDB, initDB, generateKey, bcrypt };

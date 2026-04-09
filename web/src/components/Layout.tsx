@@ -1,5 +1,7 @@
+import { useState } from 'react';
 import { NavLink, Outlet, useMatch } from 'react-router-dom';
 import { useAuth } from '../hooks/useAuth';
+import ChangePasswordDialog from './ChangePasswordDialog';
 
 const tabs = [
   { label: '笔记', to: '/notes' },
@@ -10,6 +12,7 @@ const tabs = [
 
 export default function Layout() {
   const { user, logout } = useAuth();
+  const [showChangePwd, setShowChangePwd] = useState(false);
   const isNoteDetail = useMatch('/notes/:id');
   const isDocDetail = useMatch('/docs/:id');
   const isDetailPage = !!(isNoteDetail || isDocDetail);
@@ -24,6 +27,12 @@ export default function Layout() {
           </h1>
           <div className="flex items-center gap-3 text-sm">
             <span className="text-slate-400">{user?.name}</span>
+            <button
+              onClick={() => setShowChangePwd(true)}
+              className="rounded px-2.5 py-1 text-slate-400 hover:bg-slate-800 hover:text-slate-200 transition"
+            >
+              修改密码
+            </button>
             <button
               onClick={logout}
               className="rounded px-2.5 py-1 text-slate-400 hover:bg-slate-800 hover:text-slate-200 transition"
@@ -65,6 +74,10 @@ export default function Layout() {
           <Outlet />
         </div>
       </main>
+
+      {showChangePwd && (
+        <ChangePasswordDialog onClose={() => setShowChangePwd(false)} />
+      )}
     </div>
   );
 }

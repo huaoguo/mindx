@@ -2,7 +2,7 @@ const express = require('express');
 const path = require('path');
 const { execSync } = require('child_process');
 const multer = require('multer');
-const { pool, hasDB, initDB, generateKey } = require('./db');
+const { pool, hasDB, initDB, generateKey, bcrypt } = require('./db');
 const insightsRouter = require('./routes/insights');
 
 const upload = multer({ storage: multer.memoryStorage(), limits: { fileSize: 10 * 1024 * 1024 } });
@@ -86,24 +86,63 @@ async function auth(req, res, next) {
   return res.status(401).json({ error: 'invalid API key' });
 }
 
-// --- Login ---
+// --- Login & Register ---
 
 dbRouter.post('/login', async (req, res) => {
-  const { name } = req.body;
-  if (!name || !name.trim()) return res.status(400).json({ error: 'name is required' });
+  const { name, password } = req.body;
+  if (!name || !name.trim()) return res.status(400).json({ error: '用户名不能为空' });
+  if (!password) return res.status(400).json({ error: '密码不能为空' });
+
+  const existing = await pool.query('SELECT id, key, name, password_hash FROM users WHERE name = $1', [name.trim()]);
+  if (existing.rows.length === 0) {
+    return res.status(401).json({ error: '用户名或密码错误' });
+  }
+
+  const user = existing.rows[0];
+  const valid = await bcrypt.compare(password, user.password_hash);
+  if (!valid) {
+    return res.status(401).json({ error: '用户名或密码错误' });
+  }
+
+  res.json({ id: user.id, key: user.key, name: user.name });
+});
+
+dbRouter.post('/register', async (req, res) => {
+  const { name, password } = req.body;
+  if (!name || !name.trim()) return res.status(400).json({ error: '用户名不能为空' });
+  if (!password || password.length < 6) return res.status(400).json({ error: '密码至少 6 位' });
   const trimmed = name.trim();
 
-  const existing = await pool.query('SELECT id, key, name FROM users WHERE name = $1', [trimmed]);
+  const existing = await pool.query('SELECT id FROM users WHERE name = $1', [trimmed]);
   if (existing.rows.length > 0) {
-    return res.json(existing.rows[0]);
+    return res.status(409).json({ error: '用户名已存在' });
   }
 
   const key = generateKey();
+  const hash = await bcrypt.hash(password, 10);
   const { rows } = await pool.query(
-    'INSERT INTO users (key, name) VALUES ($1, $2) RETURNING id, key, name',
-    [key, trimmed]
+    'INSERT INTO users (key, name, password_hash) VALUES ($1, $2, $3) RETURNING id, key, name',
+    [key, trimmed, hash]
   );
   res.status(201).json(rows[0]);
+});
+
+// --- Change password (requires auth) ---
+
+dbRouter.put('/user/password', auth, async (req, res) => {
+  const { oldPassword, newPassword } = req.body;
+  if (!oldPassword) return res.status(400).json({ error: '请输入旧密码' });
+  if (!newPassword || newPassword.length < 6) return res.status(400).json({ error: '新密码至少 6 位' });
+
+  const { rows } = await pool.query('SELECT password_hash FROM users WHERE id = $1', [req.user.id]);
+  if (rows.length === 0) return res.status(404).json({ error: '用户不存在' });
+
+  const valid = await bcrypt.compare(oldPassword, rows[0].password_hash);
+  if (!valid) return res.status(401).json({ error: '旧密码错误' });
+
+  const hash = await bcrypt.hash(newPassword, 10);
+  await pool.query('UPDATE users SET password_hash = $1 WHERE id = $2', [hash, req.user.id]);
+  res.json({ success: true });
 });
 
 // --- Agent management (requires user auth, not agent) ---
