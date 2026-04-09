@@ -7,6 +7,7 @@ export default function NotesPage() {
   const location = useLocation();
 
   const [notes, setNotes] = useState<Note[]>([]);
+  const [insightCounts, setInsightCounts] = useState<Record<number, number>>({});
   const [title, setTitle] = useState('');
   const [content, setContent] = useState('');
   const [editingId, setEditingId] = useState<number | null>(null);
@@ -22,15 +23,22 @@ export default function NotesPage() {
       setEditingId(state.editId);
       setTitle(state.editTitle ?? '');
       setContent(state.editContent ?? '');
-      // Clear the location state so refreshing doesn't re-trigger
       window.history.replaceState({}, document.title);
     }
   }, [location.state]);
 
   async function loadNotes() {
     try {
-      const data = await api.listNotes();
+      const [data, insights] = await Promise.all([
+        api.listNotes(),
+        api.listInsights({ source_type: 'note' }),
+      ]);
       setNotes(data);
+      const counts: Record<number, number> = {};
+      for (const ins of insights) {
+        counts[ins.source_id] = (counts[ins.source_id] || 0) + 1;
+      }
+      setInsightCounts(counts);
     } catch (e) {
       console.error('Failed to load notes', e);
     }
@@ -112,7 +120,14 @@ export default function NotesPage() {
             onClick={() => navigate(`/notes/${note.id}`)}
             className="bg-slate-800 hover:bg-slate-750 hover:ring-1 hover:ring-blue-500/40 rounded-lg p-4 cursor-pointer transition-all shadow"
           >
-            <div className="font-bold text-slate-100 mb-1">{note.title}</div>
+            <div className="font-bold text-slate-100 mb-1">
+              {note.title}
+              {insightCounts[note.id] > 0 && (
+                <span className="ml-2 text-xs font-normal bg-emerald-500/20 text-emerald-400 rounded-full px-2 py-0.5">
+                  {insightCounts[note.id]} 条洞察
+                </span>
+              )}
+            </div>
             <div className="text-sm text-slate-400">
               创建者 {note.created_by ?? '未知'}
               {' · '}

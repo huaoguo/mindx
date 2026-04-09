@@ -23,6 +23,7 @@ export default function DocsPage() {
   const navigate = useNavigate();
 
   const [docs, setDocs] = useState<Doc[]>([]);
+  const [insightCounts, setInsightCounts] = useState<Record<number, number>>({});
   const [typeFilter, setTypeFilter] = useState('');
   const [loading, setLoading] = useState(false);
 
@@ -33,8 +34,16 @@ export default function DocsPage() {
   async function loadDocs() {
     setLoading(true);
     try {
-      const data = await api.listDocs(typeFilter || undefined);
+      const [data, insights] = await Promise.all([
+        api.listDocs(typeFilter || undefined),
+        api.listInsights({ source_type: 'document' }),
+      ]);
       setDocs(data);
+      const counts: Record<number, number> = {};
+      for (const ins of insights) {
+        counts[ins.source_id] = (counts[ins.source_id] || 0) + 1;
+      }
+      setInsightCounts(counts);
     } catch (e) {
       console.error('Failed to load docs', e);
     } finally {
@@ -75,6 +84,11 @@ export default function DocsPage() {
               <span className="text-xs bg-purple-600/30 text-purple-300 rounded px-2 py-0.5">
                 {TYPE_LABELS[doc.type] ?? doc.type}
               </span>
+              {insightCounts[doc.id] > 0 && (
+                <span className="text-xs bg-emerald-500/20 text-emerald-400 rounded-full px-2 py-0.5">
+                  {insightCounts[doc.id]} 条洞察
+                </span>
+              )}
             </div>
             <div className="text-sm text-slate-400">
               来自 {doc.agent_name ?? '未知'}
