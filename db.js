@@ -60,6 +60,31 @@ async function initDB() {
       uploaded_at TIMESTAMP DEFAULT NOW()
     )
   `);
+  await pool.query(`
+    CREATE TABLE IF NOT EXISTS insights (
+      id SERIAL PRIMARY KEY,
+      user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+      content TEXT NOT NULL,
+      value_summary TEXT NOT NULL,
+      category VARCHAR(20) NOT NULL CHECK (category IN (
+        'preference','fact','constraint','decision','goal','insight','relationship','event'
+      )),
+      confidence INTEGER NOT NULL CHECK (confidence BETWEEN 0 AND 100),
+      status VARCHAR(20) NOT NULL DEFAULT 'confirmed' CHECK (status IN (
+        'confirmed','pending','deprecated'
+      )),
+      source_type VARCHAR(20) NOT NULL CHECK (source_type IN ('document','note')),
+      source_id INTEGER NOT NULL,
+      source_quote VARCHAR(200),
+      source_position VARCHAR(100),
+      source_timestamp TIMESTAMP,
+      superseded_by INTEGER REFERENCES insights(id),
+      change_reason TEXT,
+      pinned BOOLEAN DEFAULT FALSE,
+      created_at TIMESTAMP DEFAULT NOW(),
+      updated_at TIMESTAMP DEFAULT NOW()
+    )
+  `);
   console.log('Database initialized');
 }
 

@@ -17,7 +17,11 @@
       "Bash(docker --version)",
       "Bash(docker run:*)",
       "Bash(node:*)",
-      "WebFetch(domain:claudeskills.club)"
+      "WebFetch(domain:claudeskills.club)",
+      "Read(//tmp/**)",
+      "Bash(wc -l ~/Downloads/mindx-memory-extraction/*.md ~/Downloads/mindx-memory-extraction/*.txt ~/Downloads/mindx-memory-extraction/references/*.md ~/Downloads/mindx-memory-extraction/evals/*.json)",
+      "Bash(ls -1 ~/Downloads/mindx-memory-extraction/*.md ~/Downloads/mindx-memory-extraction/*.txt)",
+      "Bash(xargs -I {} basename {})"
     ]
   }
 }

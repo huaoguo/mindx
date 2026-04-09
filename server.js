@@ -3,6 +3,7 @@ const path = require('path');
 const { execSync } = require('child_process');
 const multer = require('multer');
 const { pool, hasDB, initDB, generateKey } = require('./db');
+const insightsRouter = require('./routes/insights');
 
 const upload = multer({ storage: multer.memoryStorage(), limits: { fileSize: 10 * 1024 * 1024 } });
 
@@ -299,6 +300,9 @@ dbRouter.delete('/documents/:id', auth, async (req, res) => {
   if (rowCount === 0) return res.status(404).json({ error: 'document not found' });
   res.json({ deleted: true });
 });
+
+// --- Insights (extraction + CRUD) ---
+dbRouter.use(auth, insightsRouter);
 
 app.use('/api', dbRouter);
 

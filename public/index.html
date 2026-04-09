@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="zh-CN">
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
@@ -89,6 +89,45 @@
     .note-meta span { margin-right: 1rem; }
     .note-actions { margin-top: 0.6rem; display: flex; gap: 0.4rem; }
 
+    /* Insight cards */
+    .insight-card {
+      padding: 1rem 1.25rem; margin-bottom: 0.75rem;
+      background: rgba(255,255,255,0.05);
+      border-radius: 10px; border: 1px solid rgba(255,255,255,0.08);
+    }
+    .insight-card.pinned { border-color: rgba(250,204,21,0.3); }
+    .insight-card.pending { border-color: rgba(251,146,60,0.3); }
+    .insight-content { font-weight: 600; font-size: 0.95rem; margin-bottom: 0.4rem; line-height: 1.4; }
+    .insight-value { color: #94a3b8; font-size: 0.85rem; margin-bottom: 0.5rem; line-height: 1.4; }
+    .insight-source { font-size: 0.75rem; color: #64748b; margin-bottom: 0.5rem; }
+    .insight-meta { display: flex; align-items: center; gap: 0.5rem; flex-wrap: wrap; }
+    .insight-badge {
+      display: inline-block; padding: 0.1rem 0.4rem; border-radius: 4px;
+      font-size: 0.7rem; font-weight: 500;
+    }
+    .insight-badge.cat { background: rgba(99,102,241,0.2); color: #a5b4fc; }
+    .insight-badge.conf { background: rgba(34,197,94,0.15); color: #4ade80; }
+    .insight-badge.conf.low { background: rgba(251,146,60,0.15); color: #fb923c; }
+    .insight-badge.pin-badge { background: rgba(250,204,21,0.15); color: #fbbf24; }
+    .insight-actions { display: flex; gap: 0.4rem; margin-left: auto; }
+    .filter-bar { display: flex; gap: 0.5rem; margin-bottom: 1rem; flex-wrap: wrap; align-items: center; }
+    .filter-bar select, .filter-bar button {
+      padding: 0.5rem 0.8rem; background: rgba(0,0,0,0.3);
+      border: 1px solid rgba(255,255,255,0.15); border-radius: 8px;
+      color: #e2e8f0; font-size: 0.85rem;
+    }
+    .extracting-indicator {
+      display: inline-flex; align-items: center; gap: 0.5rem;
+      padding: 0.5rem 1rem; background: rgba(99,102,241,0.15);
+      border-radius: 8px; color: #a5b4fc; font-size: 0.85rem;
+    }
+    .extracting-indicator .spinner {
+      width: 14px; height: 14px; border: 2px solid rgba(165,180,252,0.3);
+      border-top-color: #a5b4fc; border-radius: 50%;
+      animation: spin 0.8s linear infinite;
+    }
+    @keyframes spin { to { transform: rotate(360deg); } }
+
     /* Agent list */
     .agent-item {
       display: flex; justify-content: space-between; align-items: center;
@@ -149,52 +188,53 @@
 <body>
   <div class="container">
 
-    <!-- Login -->
+    <!-- 登录 -->
     <div id="login-screen" class="login">
       <h1>MindX</h1>
-      <p style="color:#64748b; margin-bottom:1.5rem;">Enter your name to continue</p>
-      <input id="login-name" placeholder="Your name" onkeydown="if(event.key==='Enter')login()" />
-      <button class="btn btn-primary" onclick="login()">Login</button>
+      <p style="color:#64748b; margin-bottom:1.5rem;">输入你的名字以继续</p>
+      <input id="login-name" placeholder="你的名字" onkeydown="if(event.key==='Enter')login()" />
+      <button class="btn btn-primary" onclick="login()">登录</button>
     </div>
 
-    <!-- App -->
+    <!-- 主界面 -->
     <div id="app-screen" class="hidden">
       <div class="header">
         <h1>MindX</h1>
         <div class="user-info">
           <span class="user-name" id="display-name"></span>
-          <button class="btn btn-ghost" onclick="logout()">Logout</button>
+          <button class="btn btn-ghost" onclick="logout()">退出</button>
         </div>
       </div>
 
       <div class="tabs">
-        <button class="tab active" onclick="switchTab('notes')">Notes</button>
-        <button class="tab" onclick="switchTab('docs')">Documents</button>
-        <button class="tab" onclick="switchTab('agents')">Agents</button>
+        <button class="tab active" onclick="switchTab('notes')">笔记</button>
+        <button class="tab" onclick="switchTab('docs')">文档</button>
+        <button class="tab" onclick="switchTab('insights')">洞察</button>
+        <button class="tab" onclick="switchTab('agents')">Agent</button>
       </div>
 
-      <!-- Notes Tab -->
+      <!-- 笔记标签页 -->
       <div id="tab-notes">
         <div class="card">
           <div class="form">
-            <input id="title" placeholder="Title" />
-            <textarea id="content" placeholder="Content (optional)"></textarea>
+            <input id="title" placeholder="标题" />
+            <textarea id="content" placeholder="内容（可选）"></textarea>
             <div class="form-row">
-              <button class="btn btn-primary" onclick="saveNote()">Add Note</button>
-              <button class="btn btn-secondary" id="cancelBtn" style="display:none" onclick="cancelEdit()">Cancel</button>
+              <button class="btn btn-primary" onclick="saveNote()">添加笔记</button>
+              <button class="btn btn-secondary" id="cancelBtn" style="display:none" onclick="cancelEdit()">取消</button>
             </div>
           </div>
         </div>
         <div id="notes"></div>
       </div>
 
-      <!-- Agents Tab -->
+      <!-- Agent 标签页 -->
       <div id="tab-agents" class="hidden">
         <div class="card">
           <div class="form">
             <div class="form-row">
-              <input id="agent-name" placeholder="Agent name" onkeydown="if(event.key==='Enter')createAgent()" />
-              <button class="btn btn-primary" onclick="createAgent()">Create</button>
+              <input id="agent-name" placeholder="Agent 名称" onkeydown="if(event.key==='Enter')createAgent()" />
+              <button class="btn btn-primary" onclick="createAgent()">创建</button>
             </div>
           </div>
           <div id="new-agent-key"></div>
@@ -202,26 +242,54 @@
         <div id="agents"></div>
       </div>
 
-      <!-- Documents Tab -->
+      <!-- 文档标签页 -->
       <div id="tab-docs" class="hidden">
-        <div class="filter-bar" style="display:flex;gap:0.5rem;margin-bottom:1rem;">
-          <select id="doc-type-filter" onchange="loadDocs()" style="padding:0.5rem 0.8rem;background:rgba(0,0,0,0.3);border:1px solid rgba(255,255,255,0.15);border-radius:8px;color:#e2e8f0;font-size:0.85rem;">
-            <option value="">All types</option>
-            <option value="user">user</option>
-            <option value="soul">soul</option>
-            <option value="memory">memory</option>
-            <option value="log">log</option>
-            <option value="chat">chat</option>
+        <div class="filter-bar">
+          <select id="doc-type-filter" onchange="loadDocs()">
+            <option value="">全部类型</option>
+            <option value="user">用户文档</option>
+            <option value="soul">人格设定</option>
+            <option value="memory">记忆</option>
+            <option value="log">日志</option>
+            <option value="chat">对话</option>
           </select>
         </div>
         <div id="docs"></div>
         <div id="doc-viewer" class="hidden">
-          <button class="btn btn-secondary btn-sm" onclick="closeDocs()" style="margin-bottom:1rem;">&larr; Back</button>
+          <div style="display:flex;gap:0.5rem;margin-bottom:1rem;">
+            <button class="btn btn-secondary btn-sm" onclick="closeDocs()">&larr; 返回</button>
+            <button class="btn btn-primary btn-sm" id="doc-extract-btn" onclick="extractFromDoc()">萃取洞察</button>
+          </div>
           <div class="card">
             <div id="doc-viewer-header" style="margin-bottom:1rem;"></div>
             <div id="doc-viewer-content" style="white-space:pre-wrap;font-family:monospace;font-size:0.85rem;color:#cbd5e1;line-height:1.6;"></div>
           </div>
         </div>
+      </div>
+
+      <!-- 洞察标签页 -->
+      <div id="tab-insights" class="hidden">
+        <div class="filter-bar">
+          <select id="insight-cat-filter" onchange="loadInsights()">
+            <option value="">全部分类</option>
+            <option value="goal">目标</option>
+            <option value="preference">偏好</option>
+            <option value="fact">事实</option>
+            <option value="constraint">约束</option>
+            <option value="decision">决策</option>
+            <option value="insight">洞见</option>
+            <option value="relationship">关系</option>
+            <option value="event">事件</option>
+          </select>
+          <select id="insight-status-filter" onchange="loadInsights()">
+            <option value="">有效</option>
+            <option value="confirmed">已确认</option>
+            <option value="pending">待确认</option>
+            <option value="deprecated">已废弃</option>
+          </select>
+          <button class="btn btn-sm" id="insight-pin-toggle" onclick="togglePinFilter()" style="background:rgba(250,204,21,0.1);color:#fbbf24;border:1px solid rgba(250,204,21,0.2);">仅看置顶</button>
+        </div>
+        <div id="insights"></div>
       </div>
 
     </div>
@@ -232,26 +300,30 @@
     let apiKey = null;
     let userName = null;
     let agentPollTimer = null;
+    let currentDocId = null;
+    let pinFilterActive = false;
 
     function authHeaders() {
       return { 'Authorization': 'Bearer ' + apiKey, 'Content-Type': 'application/json' };
     }
 
-    // --- Tabs ---
+    // --- 标签页 ---
 
     function switchTab(tab) {
       document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
       document.querySelector(`.tab[onclick*="${tab}"]`).classList.add('active');
       document.getElementById('tab-notes').classList.toggle('hidden', tab !== 'notes');
       document.getElementById('tab-docs').classList.toggle('hidden', tab !== 'docs');
+      document.getElementById('tab-insights').classList.toggle('hidden', tab !== 'insights');
       document.getElementById('tab-agents').classList.toggle('hidden', tab !== 'agents');
       if (tab === 'notes') loadNotes();
       if (tab === 'docs') loadDocs();
+      if (tab === 'insights') loadInsights();
       if (tab === 'agents') { loadAgents(); startAgentPoll(); }
       else { stopAgentPoll(); }
     }
 
-    // --- Auth ---
+    // --- 登录 ---
 
     async function login() {
       const name = document.getElementById('login-name').value.trim();
@@ -261,7 +333,7 @@
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ name }),
       });
-      if (!res.ok) return alert('Login failed');
+      if (!res.ok) return alert('登录失败');
       const data = await res.json();
       apiKey = data.key;
       userName = data.name;
@@ -291,7 +363,7 @@
       loadNotes();
     }
 
-    // --- Agents ---
+    // --- Agent ---
 
     async function loadAgents() {
       const res = await fetch('/api/agents', { headers: authHeaders() });
@@ -299,7 +371,7 @@
       const agents = await res.json();
       const container = document.getElementById('agents');
       if (agents.length === 0) {
-        container.innerHTML = '<div class="empty">No agents yet. Create one above.</div>';
+        container.innerHTML = '<div class="empty">还没有 Agent，在上方创建一个吧。</div>';
         return;
       }
       container.innerHTML = agents.map(a => `
@@ -307,9 +379,9 @@
           <div style="display:flex;justify-content:space-between;align-items:center;">
             <div>
               <div class="agent-name">${esc(a.name)} ${statusBadge(a.status)}</div>
-              <div class="agent-time">Created ${new Date(a.created_at).toLocaleString()}</div>
+              <div class="agent-time">创建于 ${new Date(a.created_at).toLocaleString('zh-CN')}</div>
             </div>
-            <button class="btn btn-sm btn-danger" onclick="event.stopPropagation();deleteAgent(${a.id}, '${esc(a.name)}')">Delete</button>
+            <button class="btn btn-sm btn-danger" onclick="event.stopPropagation();deleteAgent(${a.id}, '${esc(a.name)}')">删除</button>
           </div>
         </div>
       `).join('');
@@ -325,13 +397,13 @@
       });
       if (!res.ok) {
         const err = await res.json();
-        return alert(err.error || 'Failed to create agent');
+        return alert(err.error || '创建 Agent 失败');
       }
       const agent = await res.json();
       document.getElementById('agent-name').value = '';
       document.getElementById('new-agent-key').innerHTML = `
         <div class="key-display">
-          <div class="label">Agent "${esc(agent.name)}" created!</div>
+          <div class="label">Agent「${esc(agent.name)}」创建成功！</div>
         </div>
         ${installCmdHTML(installCmd(agent.id, agent.key))}
       `;
@@ -339,12 +411,12 @@
     }
 
     async function deleteAgent(id, name) {
-      if (!confirm(`Delete agent "${name}"? Its API key will stop working.`)) return;
+      if (!confirm(`确定删除 Agent「${name}」？其 API 密钥将失效。`)) return;
       await fetch(`/api/agents/${id}`, { method: 'DELETE', headers: authHeaders() });
       loadAgents();
     }
 
-    // --- Notes ---
+    // --- 笔记 ---
 
     async function loadNotes() {
       const res = await fetch('/api/notes', { headers: authHeaders() });
@@ -352,23 +424,24 @@
       const notes = await res.json();
       const container = document.getElementById('notes');
       if (notes.length === 0) {
-        container.innerHTML = '<div class="empty">No notes yet. Create one above!</div>';
+        container.innerHTML = '<div class="empty">还没有笔记，在上方创建一条吧！</div>';
         return;
       }
       container.innerHTML = notes.map(n => `
         <div class="note">
           <div class="note-header">
             <span class="note-title">${esc(n.title)}</span>
-            <span class="note-time">${new Date(n.created_at).toLocaleString()}</span>
+            <span class="note-time">${new Date(n.created_at).toLocaleString('zh-CN')}</span>
           </div>
           ${n.content ? `<div class="note-content">${esc(n.content)}</div>` : ''}
           <div class="note-meta">
-            <span>by ${esc(n.created_by)}</span>
-            ${n.updated_by ? `<span>edited by ${esc(n.updated_by)}</span>` : ''}
+            <span>创建者 ${esc(n.created_by)}</span>
+            ${n.updated_by ? `<span>编辑者 ${esc(n.updated_by)}</span>` : ''}
           </div>
           <div class="note-actions">
-            <button class="btn btn-sm btn-secondary" onclick="startEdit(${n.id}, ${esc(JSON.stringify(n.title))}, ${esc(JSON.stringify(n.content))})">Edit</button>
-            <button class="btn btn-sm btn-danger" onclick="deleteNote(${n.id})">Delete</button>
+            <button class="btn btn-sm btn-secondary" onclick="startEdit(${n.id}, ${esc(JSON.stringify(n.title))}, ${esc(JSON.stringify(n.content))})">编辑</button>
+            <button class="btn btn-sm btn-secondary" onclick="extractFromNote(${n.id}, this)">萃取</button>
+            <button class="btn btn-sm btn-danger" onclick="deleteNote(${n.id})">删除</button>
           </div>
         </div>
       `).join('');
@@ -377,7 +450,7 @@
     async function saveNote() {
       const title = document.getElementById('title').value.trim();
       const content = document.getElementById('content').value.trim();
-      if (!title) return alert('Title is required');
+      if (!title) return alert('标题不能为空');
 
       if (editingId) {
         await fetch(`/api/notes/${editingId}`, {
@@ -401,7 +474,7 @@
       document.getElementById('title').value = title;
       document.getElementById('content').value = content || '';
       document.getElementById('cancelBtn').style.display = '';
-      document.querySelector('#tab-notes .btn-primary').textContent = 'Update';
+      document.querySelector('#tab-notes .btn-primary').textContent = '更新';
     }
 
     function cancelEdit() {
@@ -409,16 +482,20 @@
       document.getElementById('title').value = '';
       document.getElementById('content').value = '';
       document.getElementById('cancelBtn').style.display = 'none';
-      document.querySelector('#tab-notes .btn-primary').textContent = 'Add Note';
+      document.querySelector('#tab-notes .btn-primary').textContent = '添加笔记';
     }
 
     async function deleteNote(id) {
-      if (!confirm('Delete this note?')) return;
+      if (!confirm('确定删除这条笔记？')) return;
       await fetch(`/api/notes/${id}`, { method: 'DELETE', headers: authHeaders() });
       loadNotes();
     }
 
-    // --- Documents ---
+    // --- 文档 ---
+
+    const DOC_TYPE_LABELS = {
+      user: '用户文档', soul: '人格设定', memory: '记忆', log: '日志', chat: '对话',
+    };
 
     async function loadDocs() {
       document.getElementById('docs').classList.remove('hidden');
@@ -430,7 +507,7 @@
       const docs = await res.json();
       const container = document.getElementById('docs');
       if (docs.length === 0) {
-        container.innerHTML = '<div class="empty">No documents yet. Agents can upload markdown files via the API.</div>';
+        container.innerHTML = '<div class="empty">还没有文档。Agent 可以通过 API 上传 Markdown 文件。</div>';
         return;
       }
       container.innerHTML = docs.map(d => `
@@ -438,8 +515,8 @@
           <div style="flex:1;min-width:0;">
             <div class="agent-name">${esc(d.filename)}</div>
             <div class="agent-time">
-              <span style="display:inline-block;padding:0.1rem 0.4rem;border-radius:4px;background:rgba(99,102,241,0.2);color:#a5b4fc;font-size:0.7rem;margin-right:0.5rem;">${esc(d.type)}</span>
-              by ${esc(d.agent_name)} &middot; ${new Date(d.uploaded_at).toLocaleString()}
+              <span style="display:inline-block;padding:0.1rem 0.4rem;border-radius:4px;background:rgba(99,102,241,0.2);color:#a5b4fc;font-size:0.7rem;margin-right:0.5rem;">${esc(DOC_TYPE_LABELS[d.type] || d.type)}</span>
+              来自 ${esc(d.agent_name)} &middot; ${new Date(d.uploaded_at).toLocaleString('zh-CN')}
             </div>
           </div>
         </div>
@@ -450,15 +527,18 @@
       const res = await fetch(`/api/documents/${id}`, { headers: authHeaders() });
       if (!res.ok) return;
       const d = await res.json();
+      currentDocId = id;
       document.getElementById('docs').classList.add('hidden');
       document.getElementById('doc-viewer').classList.remove('hidden');
+      document.getElementById('doc-extract-btn').disabled = false;
+      document.getElementById('doc-extract-btn').textContent = '萃取洞察';
       document.getElementById('doc-viewer-header').innerHTML = `
         <div style="font-weight:600;font-size:1.1rem;">${esc(d.filename)}</div>
         <div style="font-size:0.8rem;color:#64748b;margin-top:0.25rem;">
-          <span style="display:inline-block;padding:0.1rem 0.4rem;border-radius:4px;background:rgba(99,102,241,0.2);color:#a5b4fc;font-size:0.7rem;margin-right:0.5rem;">${esc(d.type)}</span>
-          by ${esc(d.agent_name)} &middot;
-          file created ${new Date(d.file_created_at).toLocaleString()} &middot;
-          uploaded ${new Date(d.uploaded_at).toLocaleString()}
+          <span style="display:inline-block;padding:0.1rem 0.4rem;border-radius:4px;background:rgba(99,102,241,0.2);color:#a5b4fc;font-size:0.7rem;margin-right:0.5rem;">${esc(DOC_TYPE_LABELS[d.type] || d.type)}</span>
+          来自 ${esc(d.agent_name)} &middot;
+          文件创建于 ${new Date(d.file_created_at).toLocaleString('zh-CN')} &middot;
+          上传于 ${new Date(d.uploaded_at).toLocaleString('zh-CN')}
         </div>
       `;
       document.getElementById('doc-viewer-content').textContent = d.content;
@@ -469,12 +549,12 @@
       document.getElementById('docs').classList.remove('hidden');
     }
 
-    // --- Agent status ---
+    // --- Agent 状态 ---
 
     const STATUS_LABELS = {
-      idle: 'Not installed',
-      installing: 'Installing...',
-      connected: 'Connected',
+      idle: '未安装',
+      installing: '安装中…',
+      connected: '已连接',
     };
 
     function statusBadge(status) {
@@ -506,7 +586,7 @@
       }
     }
 
-    // --- Install command ---
+    // --- 安装命令 ---
 
     function getBaseUrl() {
       return window.location.origin;
@@ -524,10 +604,10 @@
       const id = 'cmd-' + Math.random().toString(36).slice(2, 8);
       return `
         <div class="install-cmd">
-          <div class="label">Install command:</div>
+          <div class="label">安装命令：</div>
           <code id="${id}">${esc(cmd)}</code>
           <div class="copy-row">
-            <button class="btn-copy" onclick="event.stopPropagation();copyCmd('${id}', this)">Copy</button>
+            <button class="btn-copy" onclick="event.stopPropagation();copyCmd('${id}', this)">复制</button>
           </div>
         </div>
       `;
@@ -542,8 +622,8 @@
     function copyCmd(id, btn) {
       const text = document.getElementById(id).textContent;
       navigator.clipboard.writeText(text).then(() => {
-        btn.textContent = 'Copied!';
-        setTimeout(() => btn.textContent = 'Copy', 1500);
+        btn.textContent = '已复制！';
+        setTimeout(() => btn.textContent = '复制', 1500);
       });
     }
 
@@ -553,7 +633,148 @@
       return d.innerHTML;
     }
 
-    // --- Init ---
+    // --- 洞察 ---
+
+    const CAT_LABELS = {
+      preference: '偏好', fact: '事实', constraint: '约束', decision: '决策',
+      goal: '目标', insight: '洞见', relationship: '关系', event: '事件',
+    };
+
+    const SOURCE_TYPE_LABELS = { document: '文档', note: '笔记' };
+
+    async function loadInsights() {
+      const cat = document.getElementById('insight-cat-filter').value;
+      const status = document.getElementById('insight-status-filter').value;
+      let url = '/api/insights?';
+      if (cat) url += `category=${cat}&`;
+      if (status) url += `status=${status}&`;
+      if (pinFilterActive) url += 'pinned=true&';
+
+      const res = await fetch(url, { headers: authHeaders() });
+      if (res.status === 401) return logout();
+      const insights = await res.json();
+      const container = document.getElementById('insights');
+      if (insights.length === 0) {
+        container.innerHTML = '<div class="empty">还没有洞察。你可以从文档或笔记中萃取洞察。</div>';
+        return;
+      }
+      container.innerHTML = insights.map(renderInsightCard).join('');
+    }
+
+    function renderInsightCard(ins) {
+      const isPending = ins.status === 'pending';
+      const isPinned = ins.pinned;
+      const isLow = ins.confidence < 60;
+      const srcLabel = SOURCE_TYPE_LABELS[ins.source_type] || ins.source_type;
+      return `
+        <div class="insight-card${isPinned ? ' pinned' : ''}${isPending ? ' pending' : ''}">
+          <div class="insight-content">${isPinned ? '<span title="已置顶">&#x1f4cc;</span> ' : ''}${esc(ins.content)}</div>
+          <div class="insight-value">${esc(ins.value_summary)}</div>
+          <div class="insight-source">
+            ${ins.source_quote ? `"${esc(ins.source_quote)}" &middot; ` : ''}
+            ${ins.source_position ? `${esc(ins.source_position)} &middot; ` : ''}
+            ${esc(srcLabel)} #${ins.source_id}
+            ${ins.source_timestamp ? ` &middot; ${new Date(ins.source_timestamp).toLocaleDateString('zh-CN')}` : ''}
+          </div>
+          <div class="insight-meta">
+            <span class="insight-badge cat">${CAT_LABELS[ins.category] || ins.category}</span>
+            <span class="insight-badge conf${isLow ? ' low' : ''}">${ins.confidence}/100${isLow ? '（待确认）' : ''}</span>
+            ${ins.change_reason ? `<span style="font-size:0.7rem;color:#64748b;" title="${esc(ins.change_reason)}">已更新</span>` : ''}
+            <div class="insight-actions">
+              <button class="btn btn-sm btn-secondary" onclick="togglePin(${ins.id}, ${!isPinned})" title="${isPinned ? '取消置顶' : '置顶'}">
+                ${isPinned ? '取消置顶' : '置顶'}
+              </button>
+              ${isPending ? `<button class="btn btn-sm btn-primary" onclick="confirmInsight(${ins.id})">确认</button>` : ''}
+              <button class="btn btn-sm btn-danger" onclick="deleteInsight(${ins.id})">删除</button>
+            </div>
+          </div>
+        </div>
+      `;
+    }
+
+    async function togglePin(id, pinned) {
+      await fetch(`/api/insights/${id}`, {
+        method: 'PUT', headers: authHeaders(),
+        body: JSON.stringify({ pinned }),
+      });
+      loadInsights();
+    }
+
+    async function confirmInsight(id) {
+      await fetch(`/api/insights/${id}`, {
+        method: 'PUT', headers: authHeaders(),
+        body: JSON.stringify({ status: 'confirmed' }),
+      });
+      loadInsights();
+    }
+
+    async function deleteInsight(id) {
+      if (!confirm('确定删除这条洞察？')) return;
+      await fetch(`/api/insights/${id}`, { method: 'DELETE', headers: authHeaders() });
+      loadInsights();
+    }
+
+    function togglePinFilter() {
+      pinFilterActive = !pinFilterActive;
+      const btn = document.getElementById('insight-pin-toggle');
+      btn.style.background = pinFilterActive ? 'rgba(250,204,21,0.3)' : 'rgba(250,204,21,0.1)';
+      loadInsights();
+    }
+
+    // --- 萃取触发 ---
+
+    async function extractFromDoc() {
+      if (!currentDocId) return;
+      const btn = document.getElementById('doc-extract-btn');
+      btn.disabled = true;
+      btn.innerHTML = '<span class="extracting-indicator"><span class="spinner"></span> 萃取中…</span>';
+      try {
+        const res = await fetch('/api/insights/extract', {
+          method: 'POST', headers: authHeaders(),
+          body: JSON.stringify({ source_type: 'document', source_id: currentDocId }),
+        });
+        const data = await res.json();
+        if (!res.ok) {
+          alert(data.error || '萃取失败');
+          btn.disabled = false;
+          btn.textContent = '萃取洞察';
+          return;
+        }
+        btn.textContent = `完成！新增 ${data.stats.added} 条，更新 ${data.stats.updated} 条，跳过 ${data.stats.skipped} 条`;
+        setTimeout(() => { switchTab('insights'); }, 1500);
+      } catch (err) {
+        alert('萃取失败：' + err.message);
+        btn.disabled = false;
+        btn.textContent = '萃取洞察';
+      }
+    }
+
+    async function extractFromNote(noteId, btn) {
+      const origText = btn.textContent;
+      btn.disabled = true;
+      btn.textContent = '萃取中…';
+      try {
+        const res = await fetch('/api/insights/extract', {
+          method: 'POST', headers: authHeaders(),
+          body: JSON.stringify({ source_type: 'note', source_id: noteId }),
+        });
+        const data = await res.json();
+        if (!res.ok) {
+          alert(data.error || '萃取失败');
+          btn.disabled = false;
+          btn.textContent = origText;
+          return;
+        }
+        btn.textContent = `萃取了 ${data.stats.added} 条洞察！`;
+        setTimeout(() => { switchTab('insights'); }, 1500);
+      } catch (err) {
+        alert('萃取失败：' + err.message);
+        btn.disabled = false;
+        btn.textContent = origText;
+      }
+    }
+
+    // --- 初始化 ---
     const savedKey = localStorage.getItem('apiKey');
     const savedName = localStorage.getItem('userName');
     if (savedKey && savedName) {
