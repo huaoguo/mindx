@@ -198,6 +198,15 @@ dbRouter.post('/notes', auth, async (req, res) => {
   res.status(201).json(rows[0]);
 });
 
+dbRouter.get('/notes/:id', auth, async (req, res) => {
+  const { rows } = await pool.query(
+    'SELECT id, title, content, created_by, updated_by, created_at, updated_at FROM notes WHERE id = $1 AND user_id = $2',
+    [req.params.id, req.user.id]
+  );
+  if (rows.length === 0) return res.status(404).json({ error: 'note not found' });
+  res.json(rows[0]);
+});
+
 dbRouter.put('/notes/:id', auth, async (req, res) => {
   const { title, content } = req.body;
   const { rows } = await pool.query(

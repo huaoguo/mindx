@@ -46,7 +46,7 @@ router.get('/insights', async (req, res) => {
   const { status, category, pinned, source_type, source_id } = req.query;
 
   let sql = `SELECT id, content, value_summary, category, confidence, status,
-             source_type, source_id, source_quote, source_position, source_timestamp,
+             source_type, source_id, source_name, source_quote, source_position, source_timestamp,
              superseded_by, change_reason, pinned, created_at, updated_at
              FROM insights WHERE user_id = $1`;
   const params = [req.user.id];
@@ -87,7 +87,7 @@ router.get('/insights', async (req, res) => {
 router.get('/insights/:id', async (req, res) => {
   const { rows } = await pool.query(
     `SELECT id, content, value_summary, category, confidence, status,
-     source_type, source_id, source_quote, source_position, source_timestamp,
+     source_type, source_id, source_name, source_quote, source_position, source_timestamp,
      superseded_by, change_reason, pinned, created_at, updated_at
      FROM insights WHERE id = $1 AND user_id = $2`,
     [req.params.id, req.user.id]

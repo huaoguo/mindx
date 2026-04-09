@@ -77,6 +77,7 @@ async function initDB() {
       source_id INTEGER NOT NULL,
       source_quote VARCHAR(200),
       source_position VARCHAR(100),
+      source_name VARCHAR(255),
       source_timestamp TIMESTAMP,
       superseded_by INTEGER REFERENCES insights(id),
       change_reason TEXT,
@@ -85,6 +86,22 @@ async function initDB() {
       updated_at TIMESTAMP DEFAULT NOW()
     )
   `);
+
+  // Migrations — add columns that may not exist on older databases
+  await pool.query(`ALTER TABLE insights ADD COLUMN IF NOT EXISTS source_name VARCHAR(255)`).catch(() => {});
+
+  // Backfill source_name for existing insights
+  await pool.query(`
+    UPDATE insights SET source_name = d.filename
+    FROM documents d
+    WHERE insights.source_type = 'document' AND insights.source_id = d.id AND insights.source_name IS NULL
+  `).catch(() => {});
+  await pool.query(`
+    UPDATE insights SET source_name = n.title
+    FROM notes n
+    WHERE insights.source_type = 'note' AND insights.source_id = n.id AND insights.source_name IS NULL
+  `).catch(() => {});
+
   console.log('Database initialized');
 }
 

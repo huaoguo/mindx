@@ -110,6 +110,11 @@
     .insight-badge.conf.low { background: rgba(251,146,60,0.15); color: #fb923c; }
     .insight-badge.pin-badge { background: rgba(250,204,21,0.15); color: #fbbf24; }
     .insight-actions { display: flex; gap: 0.4rem; margin-left: auto; }
+    .source-link {
+      color: #a5b4fc; cursor: pointer; text-decoration: underline;
+      text-decoration-style: dotted; text-underline-offset: 2px;
+    }
+    .source-link:hover { color: #c7d2fe; }
     .filter-bar { display: flex; gap: 0.5rem; margin-bottom: 1rem; flex-wrap: wrap; align-items: center; }
     .filter-bar select, .filter-bar button {
       padding: 0.5rem 0.8rem; background: rgba(0,0,0,0.3);
@@ -239,6 +244,10 @@
             <div id="note-viewer-header" style="margin-bottom:1rem;"></div>
             <div id="note-viewer-content" style="white-space:pre-wrap;font-size:0.9rem;color:#cbd5e1;line-height:1.6;"></div>
           </div>
+          <div id="note-insights-section" class="hidden" style="margin-top:1rem;">
+            <h2 style="font-size:0.95rem;color:#94a3b8;margin-bottom:0.75rem;">从此笔记萃取的洞察</h2>
+            <div id="note-insights-list"></div>
+          </div>
         </div>
       </div>
 
@@ -277,6 +286,10 @@
           <div class="card">
             <div id="doc-viewer-header" style="margin-bottom:1rem;"></div>
             <div id="doc-viewer-content" style="white-space:pre-wrap;font-family:monospace;font-size:0.85rem;color:#cbd5e1;line-height:1.6;"></div>
+          </div>
+          <div id="doc-insights-section" class="hidden" style="margin-top:1rem;">
+            <h2 style="font-size:0.95rem;color:#94a3b8;margin-bottom:0.75rem;">从此文档萃取的洞察</h2>
+            <div id="doc-insights-list"></div>
           </div>
         </div>
       </div>
@@ -458,15 +471,7 @@
 
     async function viewNote(id) {
       const res = await fetch(`/api/notes/${id}`, { headers: authHeaders() });
-      if (!res.ok) {
-        // notes 接口没有单条 GET，用列表找
-        const listRes = await fetch('/api/notes', { headers: authHeaders() });
-        const notes = await listRes.json();
-        const n = notes.find(x => x.id === id);
-        if (!n) return;
-        showNoteDetail(n);
-        return;
-      }
+      if (!res.ok) return;
       showNoteDetail(await res.json());
     }
 
@@ -487,6 +492,9 @@
       document.getElementById('note-viewer-content').textContent = n.content || '';
       // 存一下当前笔记数据供编辑用
       document.getElementById('note-viewer')._noteData = n;
+      loadRelatedInsights('note', n.id,
+        document.getElementById('note-insights-section'),
+        document.getElementById('note-insights-list'));
     }
 
     function closeNote() {
@@ -528,7 +536,10 @@
           return;
         }
         btn.textContent = `完成！新增 ${data.stats.added} 条，更新 ${data.stats.updated} 条，跳过 ${data.stats.skipped} 条`;
-        setTimeout(() => { switchTab('insights'); }, 1500);
+        loadRelatedInsights('note', currentNoteId,
+          document.getElementById('note-insights-section'),
+          document.getElementById('note-insights-list'));
+        setTimeout(() => { btn.disabled = false; btn.textContent = '萃取洞察'; }, 2000);
       } catch (err) {
         alert('萃取失败：' + err.message);
         btn.disabled = false;
@@ -634,6 +645,9 @@
         </div>
       `;
       document.getElementById('doc-viewer-content').textContent = d.content;
+      loadRelatedInsights('document', id,
+        document.getElementById('doc-insights-section'),
+        document.getElementById('doc-insights-list'));
     }
 
     function closeDocs() {
@@ -725,6 +739,30 @@
       return d.innerHTML;
     }
 
+    // --- 关联洞察 ---
+
+    async function loadRelatedInsights(sourceType, sourceId, sectionEl, listEl) {
+      const res = await fetch(`/api/insights?source_type=${sourceType}&source_id=${sourceId}`, { headers: authHeaders() });
+      if (!res.ok) { sectionEl.classList.add('hidden'); return; }
+      const insights = await res.json();
+      if (insights.length === 0) {
+        sectionEl.classList.add('hidden');
+        return;
+      }
+      sectionEl.classList.remove('hidden');
+      listEl.innerHTML = insights.map(ins => renderInsightCard(ins, /* hideSource */ true)).join('');
+    }
+
+    function navigateToSource(sourceType, sourceId) {
+      if (sourceType === 'document') {
+        switchTab('docs');
+        setTimeout(() => viewDoc(sourceId), 100);
+      } else if (sourceType === 'note') {
+        switchTab('notes');
+        setTimeout(() => viewNote(sourceId), 100);
+      }
+    }
+
     // --- 洞察 ---
 
     const CAT_LABELS = {
@@ -750,24 +788,34 @@
         container.innerHTML = '<div class="empty">还没有洞察。你可以从文档或笔记中萃取洞察。</div>';
         return;
       }
-      container.innerHTML = insights.map(renderInsightCard).join('');
+      container.innerHTML = insights.map(ins => renderInsightCard(ins)).join('');
     }
 
-    function renderInsightCard(ins) {
+    function renderInsightCard(ins, hideSource) {
       const isPending = ins.status === 'pending';
       const isPinned = ins.pinned;
       const isLow = ins.confidence < 60;
       const srcLabel = SOURCE_TYPE_LABELS[ins.source_type] || ins.source_type;
+      const srcName = ins.source_name || `#${ins.source_id}`;
+      const srcDisplay = `${srcLabel}：${srcName}`;
+
+      let sourceHTML = '';
+      if (!hideSource) {
+        const sourceLink = `<span class="source-link" onclick="event.stopPropagation();navigateToSource('${ins.source_type}', ${ins.source_id})">${esc(srcDisplay)}</span>`;
+        sourceHTML = `
+          <div class="insight-source">
+            ${ins.source_quote ? `"${esc(ins.source_quote)}" &middot; ` : ''}
+            ${ins.source_position ? `${esc(ins.source_position)} &middot; ` : ''}
+            ${sourceLink}
+            ${ins.source_timestamp ? ` &middot; ${new Date(ins.source_timestamp).toLocaleDateString('zh-CN')}` : ''}
+          </div>`;
+      }
+
       return `
         <div class="insight-card${isPinned ? ' pinned' : ''}${isPending ? ' pending' : ''}">
           <div class="insight-content">${isPinned ? '<span title="已置顶">&#x1f4cc;</span> ' : ''}${esc(ins.content)}</div>
           <div class="insight-value">${esc(ins.value_summary)}</div>
-          <div class="insight-source">
-            ${ins.source_quote ? `"${esc(ins.source_quote)}" &middot; ` : ''}
-            ${ins.source_position ? `${esc(ins.source_position)} &middot; ` : ''}
-            ${esc(srcLabel)} #${ins.source_id}
-            ${ins.source_timestamp ? ` &middot; ${new Date(ins.source_timestamp).toLocaleDateString('zh-CN')}` : ''}
-          </div>
+          ${sourceHTML}
           <div class="insight-meta">
             <span class="insight-badge cat">${CAT_LABELS[ins.category] || ins.category}</span>
             <span class="insight-badge conf${isLow ? ' low' : ''}">${ins.confidence}/100${isLow ? '（待确认）' : ''}</span>
@@ -833,7 +881,10 @@
           return;
         }
         btn.textContent = `完成！新增 ${data.stats.added} 条，更新 ${data.stats.updated} 条，跳过 ${data.stats.skipped} 条`;
-        setTimeout(() => { switchTab('insights'); }, 1500);
+        loadRelatedInsights('document', currentDocId,
+          document.getElementById('doc-insights-section'),
+          document.getElementById('doc-insights-list'));
+        setTimeout(() => { btn.disabled = false; btn.textContent = '萃取洞察'; }, 2000);
       } catch (err) {
         alert('萃取失败：' + err.message);
         btn.disabled = false;
