@@ -215,17 +215,31 @@
 
       <!-- 笔记标签页 -->
       <div id="tab-notes">
-        <div class="card">
-          <div class="form">
-            <input id="title" placeholder="标题" />
-            <textarea id="content" placeholder="内容（可选）"></textarea>
-            <div class="form-row">
-              <button class="btn btn-primary" onclick="saveNote()">添加笔记</button>
-              <button class="btn btn-secondary" id="cancelBtn" style="display:none" onclick="cancelEdit()">取消</button>
+        <div id="notes-list">
+          <div class="card">
+            <div class="form">
+              <input id="title" placeholder="标题" />
+              <textarea id="content" placeholder="内容（可选）"></textarea>
+              <div class="form-row">
+                <button class="btn btn-primary" onclick="saveNote()">添加笔记</button>
+                <button class="btn btn-secondary" id="cancelBtn" style="display:none" onclick="cancelEdit()">取消</button>
+              </div>
             </div>
           </div>
+          <div id="notes"></div>
         </div>
-        <div id="notes"></div>
+        <div id="note-viewer" class="hidden">
+          <div style="display:flex;gap:0.5rem;margin-bottom:1rem;">
+            <button class="btn btn-secondary btn-sm" onclick="closeNote()">&larr; 返回</button>
+            <button class="btn btn-secondary btn-sm" id="note-edit-btn" onclick="editCurrentNote()">编辑</button>
+            <button class="btn btn-primary btn-sm" id="note-extract-btn" onclick="extractFromCurrentNote()">萃取洞察</button>
+            <button class="btn btn-danger btn-sm" id="note-delete-btn" onclick="deleteCurrentNote()">删除</button>
+          </div>
+          <div class="card">
+            <div id="note-viewer-header" style="margin-bottom:1rem;"></div>
+            <div id="note-viewer-content" style="white-space:pre-wrap;font-size:0.9rem;color:#cbd5e1;line-height:1.6;"></div>
+          </div>
+        </div>
       </div>
 
       <!-- Agent 标签页 -->
@@ -301,6 +315,7 @@
     let userName = null;
     let agentPollTimer = null;
     let currentDocId = null;
+    let currentNoteId = null;
     let pinFilterActive = false;
 
     function authHeaders() {
@@ -419,6 +434,8 @@
     // --- 笔记 ---
 
     async function loadNotes() {
+      document.getElementById('notes-list').classList.remove('hidden');
+      document.getElementById('note-viewer').classList.add('hidden');
       const res = await fetch('/api/notes', { headers: authHeaders() });
       if (res.status === 401) return logout();
       const notes = await res.json();
@@ -428,23 +445,95 @@
         return;
       }
       container.innerHTML = notes.map(n => `
-        <div class="note">
-          <div class="note-header">
-            <span class="note-title">${esc(n.title)}</span>
-            <span class="note-time">${new Date(n.created_at).toLocaleString('zh-CN')}</span>
-          </div>
-          ${n.content ? `<div class="note-content">${esc(n.content)}</div>` : ''}
-          <div class="note-meta">
-            <span>创建者 ${esc(n.created_by)}</span>
-            ${n.updated_by ? `<span>编辑者 ${esc(n.updated_by)}</span>` : ''}
-          </div>
-          <div class="note-actions">
-            <button class="btn btn-sm btn-secondary" onclick="startEdit(${n.id}, ${esc(JSON.stringify(n.title))}, ${esc(JSON.stringify(n.content))})">编辑</button>
-            <button class="btn btn-sm btn-secondary" onclick="extractFromNote(${n.id}, this)">萃取</button>
-            <button class="btn btn-sm btn-danger" onclick="deleteNote(${n.id})">删除</button>
+        <div class="agent-item" style="cursor:pointer" onclick="viewNote(${n.id})">
+          <div style="flex:1;min-width:0;">
+            <div class="agent-name">${esc(n.title)}</div>
+            <div class="agent-time">
+              创建者 ${esc(n.created_by)}${n.updated_by ? ` &middot; 编辑者 ${esc(n.updated_by)}` : ''} &middot; ${new Date(n.created_at).toLocaleString('zh-CN')}
+            </div>
           </div>
         </div>
       `).join('');
+    }
+
+    async function viewNote(id) {
+      const res = await fetch(`/api/notes/${id}`, { headers: authHeaders() });
+      if (!res.ok) {
+        // notes 接口没有单条 GET，用列表找
+        const listRes = await fetch('/api/notes', { headers: authHeaders() });
+        const notes = await listRes.json();
+        const n = notes.find(x => x.id === id);
+        if (!n) return;
+        showNoteDetail(n);
+        return;
+      }
+      showNoteDetail(await res.json());
+    }
+
+    function showNoteDetail(n) {
+      currentNoteId = n.id;
+      document.getElementById('notes-list').classList.add('hidden');
+      document.getElementById('note-viewer').classList.remove('hidden');
+      document.getElementById('note-extract-btn').disabled = false;
+      document.getElementById('note-extract-btn').textContent = '萃取洞察';
+      document.getElementById('note-viewer-header').innerHTML = `
+        <div style="font-weight:600;font-size:1.1rem;">${esc(n.title)}</div>
+        <div style="font-size:0.8rem;color:#64748b;margin-top:0.25rem;">
+          创建者 ${esc(n.created_by)}${n.updated_by ? ` &middot; 编辑者 ${esc(n.updated_by)}` : ''} &middot;
+          创建于 ${new Date(n.created_at).toLocaleString('zh-CN')}
+          ${n.updated_at && n.updated_at !== n.created_at ? ` &middot; 更新于 ${new Date(n.updated_at).toLocaleString('zh-CN')}` : ''}
+        </div>
+      `;
+      document.getElementById('note-viewer-content').textContent = n.content || '';
+      // 存一下当前笔记数据供编辑用
+      document.getElementById('note-viewer')._noteData = n;
+    }
+
+    function closeNote() {
+      currentNoteId = null;
+      document.getElementById('note-viewer').classList.add('hidden');
+      document.getElementById('notes-list').classList.remove('hidden');
+    }
+
+    function editCurrentNote() {
+      const n = document.getElementById('note-viewer')._noteData;
+      if (!n) return;
+      closeNote();
+      startEdit(n.id, n.title, n.content);
+    }
+
+    async function deleteCurrentNote() {
+      if (!currentNoteId) return;
+      if (!confirm('确定删除这条笔记？')) return;
+      await fetch(`/api/notes/${currentNoteId}`, { method: 'DELETE', headers: authHeaders() });
+      closeNote();
+      loadNotes();
+    }
+
+    async function extractFromCurrentNote() {
+      if (!currentNoteId) return;
+      const btn = document.getElementById('note-extract-btn');
+      btn.disabled = true;
+      btn.innerHTML = '<span class="extracting-indicator"><span class="spinner"></span> 萃取中…</span>';
+      try {
+        const res = await fetch('/api/insights/extract', {
+          method: 'POST', headers: authHeaders(),
+          body: JSON.stringify({ source_type: 'note', source_id: currentNoteId }),
+        });
+        const data = await res.json();
+        if (!res.ok) {
+          alert(data.error || '萃取失败');
+          btn.disabled = false;
+          btn.textContent = '萃取洞察';
+          return;
+        }
+        btn.textContent = `完成！新增 ${data.stats.added} 条，更新 ${data.stats.updated} 条，跳过 ${data.stats.skipped} 条`;
+        setTimeout(() => { switchTab('insights'); }, 1500);
+      } catch (err) {
+        alert('萃取失败：' + err.message);
+        btn.disabled = false;
+        btn.textContent = '萃取洞察';
+      }
     }
 
     async function saveNote() {
@@ -475,6 +564,9 @@
       document.getElementById('content').value = content || '';
       document.getElementById('cancelBtn').style.display = '';
       document.querySelector('#tab-notes .btn-primary').textContent = '更新';
+      // 确保列表视图可见
+      document.getElementById('notes-list').classList.remove('hidden');
+      document.getElementById('note-viewer').classList.add('hidden');
     }
 
     function cancelEdit() {
@@ -746,31 +838,6 @@
         alert('萃取失败：' + err.message);
         btn.disabled = false;
         btn.textContent = '萃取洞察';
-      }
-    }
-
-    async function extractFromNote(noteId, btn) {
-      const origText = btn.textContent;
-      btn.disabled = true;
-      btn.textContent = '萃取中…';
-      try {
-        const res = await fetch('/api/insights/extract', {
-          method: 'POST', headers: authHeaders(),
-          body: JSON.stringify({ source_type: 'note', source_id: noteId }),
-        });
-        const data = await res.json();
-        if (!res.ok) {
-          alert(data.error || '萃取失败');
-          btn.disabled = false;
-          btn.textContent = origText;
-          return;
-        }
-        btn.textContent = `萃取了 ${data.stats.added} 条洞察！`;
-        setTimeout(() => { switchTab('insights'); }, 1500);
-      } catch (err) {
-        alert('萃取失败：' + err.message);
-        btn.disabled = false;
-        btn.textContent = origText;
       }
     }
 
